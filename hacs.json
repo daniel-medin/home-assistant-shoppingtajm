@@ -1,5 +1,5 @@
 {
-  "name": "ShoppingTajm",
+  "name": "Shoppingtajm",
   "country": ["SE"],
   "domains": ["button", "sensor"],
   "homeassistant": "2024.8.0",

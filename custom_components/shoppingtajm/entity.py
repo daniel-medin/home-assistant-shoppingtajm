@@ -30,7 +30,7 @@ class ShoppingTajmEntity(CoordinatorEntity[ShoppingTajmCoordinator]):
         return DeviceInfo(
             identifiers={(DOMAIN, self._entry_id)},
             name=NAME,
-            manufacturer="ShoppingTajm",
+            manufacturer="Shoppingtajm",
             model="Shopping List API",
             configuration_url=data.server_url if data else None,
         )

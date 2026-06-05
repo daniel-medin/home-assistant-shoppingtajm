@@ -44,7 +44,7 @@ async def validate_input(
     status = await api.async_validate_credentials()
     user_key = _extract_user_key(status) or api.token_fingerprint
     return {
-        "title": "ShoppingTajm",
+        "title": "Shoppingtajm",
         "server_url": server_url,
         "unique_id": unique_id_for_config(server_url, user_key),
     }

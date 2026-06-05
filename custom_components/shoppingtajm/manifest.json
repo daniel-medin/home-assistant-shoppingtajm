@@ -1,6 +1,6 @@
 {
   "domain": "shoppingtajm",
-  "name": "ShoppingTajm",
+  "name": "Shoppingtajm",
   "codeowners": ["@daniel-medin"],
   "config_flow": true,
   "dependencies": [],

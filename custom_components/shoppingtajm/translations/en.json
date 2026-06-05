@@ -2,8 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect ShoppingTajm",
-        "description": "Enter your ShoppingTajm server URL and Personal Access Token.",
+        "title": "Connect Shoppingtajm",
+        "description": "Enter your Shoppingtajm server URL and Personal Access Token.",
         "data": {
           "server_url": "Server URL",
           "personal_access_token": "Personal Access Token"
@@ -11,12 +11,12 @@
       }
     },
     "error": {
-      "cannot_connect": "Could not connect to ShoppingTajm.",
+      "cannot_connect": "Could not connect to Shoppingtajm.",
       "invalid_auth": "The Personal Access Token is invalid.",
-      "unknown": "Unexpected error while connecting to ShoppingTajm."
+      "unknown": "Unexpected error while connecting to Shoppingtajm."
     },
     "abort": {
-      "already_configured": "This ShoppingTajm account is already configured."
+      "already_configured": "This Shoppingtajm account is already configured."
     }
   },
   "entity": {
@@ -46,11 +46,11 @@
   "services": {
     "add_item": {
       "name": "Add item",
-      "description": "Add an item to a ShoppingTajm list.",
+      "description": "Add an item to a Shoppingtajm list.",
       "fields": {
         "list_id": {
           "name": "List ID",
-          "description": "Numeric ShoppingTajm list ID."
+          "description": "Numeric Shoppingtajm list ID."
         },
         "item_name": {
           "name": "Item name",
@@ -58,41 +58,41 @@
         },
         "entry_id": {
           "name": "Entry ID",
-          "description": "Optional ShoppingTajm config entry ID when multiple entries are configured."
+          "description": "Optional Shoppingtajm config entry ID when multiple entries are configured."
         }
       }
     },
     "complete_item": {
       "name": "Complete item",
-      "description": "Move a ShoppingTajm item to the completed/cart state.",
+      "description": "Move a Shoppingtajm item to the completed/cart state.",
       "fields": {
         "item_id": {
           "name": "Item ID",
-          "description": "Numeric ShoppingTajm item ID."
+          "description": "Numeric Shoppingtajm item ID."
         },
         "entry_id": {
           "name": "Entry ID",
-          "description": "Optional ShoppingTajm config entry ID when multiple entries are configured."
+          "description": "Optional Shoppingtajm config entry ID when multiple entries are configured."
         }
       }
     },
     "delete_item": {
       "name": "Delete item",
-      "description": "Delete a ShoppingTajm item.",
+      "description": "Delete a Shoppingtajm item.",
       "fields": {
         "item_id": {
           "name": "Item ID",
-          "description": "Numeric ShoppingTajm item ID."
+          "description": "Numeric Shoppingtajm item ID."
         },
         "entry_id": {
           "name": "Entry ID",
-          "description": "Optional ShoppingTajm config entry ID when multiple entries are configured."
+          "description": "Optional Shoppingtajm config entry ID when multiple entries are configured."
         }
       }
     },
     "create_list": {
       "name": "Create list",
-      "description": "Create and activate a ShoppingTajm list.",
+      "description": "Create and activate a Shoppingtajm list.",
       "fields": {
         "name": {
           "name": "Name",
@@ -100,21 +100,21 @@
         },
         "entry_id": {
           "name": "Entry ID",
-          "description": "Optional ShoppingTajm config entry ID when multiple entries are configured."
+          "description": "Optional Shoppingtajm config entry ID when multiple entries are configured."
         }
       }
     },
     "activate_list": {
       "name": "Activate list",
-      "description": "Switch the active ShoppingTajm list.",
+      "description": "Switch the active Shoppingtajm list.",
       "fields": {
         "list_id": {
           "name": "List ID",
-          "description": "Numeric ShoppingTajm list ID."
+          "description": "Numeric Shoppingtajm list ID."
         },
         "entry_id": {
           "name": "Entry ID",
-          "description": "Optional ShoppingTajm config entry ID when multiple entries are configured."
+          "description": "Optional Shoppingtajm config entry ID when multiple entries are configured."
         }
       }
     }

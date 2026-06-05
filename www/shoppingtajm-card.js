@@ -5,7 +5,7 @@ class ShoppingTajmCard extends HTMLElement {
 
   setConfig(config) {
     if (!config.entity) {
-      throw new Error("ShoppingTajm card requires an entity");
+      throw new Error("Shoppingtajm card requires an entity");
     }
     this._config = config;
     this._busy = false;
@@ -74,7 +74,7 @@ class ShoppingTajmCard extends HTMLElement {
         <div class="card">
           <div class="header">
             <div>
-              <div class="title">ShoppingTajm</div>
+              <img class="logo" src="/local/shoppingtajm-logo.png?v=20260605-logo" alt="Shoppingtajm">
               <div class="subtitle">${this._escape(state?.state ?? "Unavailable")}</div>
             </div>
             <button class="icon-button refresh" title="Refresh" ${disabled}>
@@ -150,6 +150,12 @@ class ShoppingTajmCard extends HTMLElement {
           font-size: 20px;
           font-weight: 600;
           line-height: 1.2;
+        }
+        .logo {
+          display: block;
+          height: auto;
+          max-width: 190px;
+          width: min(52vw, 190px);
         }
         .subtitle {
           color: var(--secondary-text-color);
@@ -328,6 +334,6 @@ customElements.define("shoppingtajm-card", ShoppingTajmCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "shoppingtajm-card",
-  name: "ShoppingTajm Card",
-  description: "Manage ShoppingTajm lists and items.",
+  name: "Shoppingtajm Card",
+  description: "Manage Shoppingtajm lists and items.",
 });

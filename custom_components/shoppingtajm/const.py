@@ -8,7 +8,7 @@ from typing import Final
 from homeassistant.const import Platform
 
 DOMAIN: Final = "shoppingtajm"
-NAME: Final = "ShoppingTajm"
+NAME: Final = "Shoppingtajm"
 DEFAULT_SERVER_URL: Final = "https://shoppingtajm.se"
 DEFAULT_SCAN_INTERVAL: Final = timedelta(seconds=60)
 

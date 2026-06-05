@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="custom_components/shoppingtajm/brand/logo.png" alt="ShoppingTajm" width="640">
+  <img src="custom_components/shoppingtajm/brand/logo.png" alt="Shoppingtajm" width="640">
 </p>
 
 # Shoppingtajm for Home Assistant
@@ -156,7 +156,7 @@ actions:
 Refresh Shoppingtajm every morning:
 
 ```yaml
-alias: Refresh ShoppingTajm in the morning
+alias: Refresh Shoppingtajm in the morning
 triggers:
   - trigger: time
     at: "07:00:00"
