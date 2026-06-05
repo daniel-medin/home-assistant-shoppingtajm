@@ -76,6 +76,50 @@
         }
       }
     },
+    "update_item": {
+      "name": "Update item",
+      "description": "Rename a Shoppingtajm item.",
+      "fields": {
+        "list_id": {
+          "name": "List ID",
+          "description": "Numeric Shoppingtajm list ID."
+        },
+        "item_id": {
+          "name": "Item ID",
+          "description": "Numeric Shoppingtajm item ID."
+        },
+        "item_name": {
+          "name": "Item name",
+          "description": "New name for the item."
+        },
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "Optional Shoppingtajm config entry ID when multiple entries are configured."
+        }
+      }
+    },
+    "set_item_quantity": {
+      "name": "Set item quantity",
+      "description": "Set the visible quantity for a Shoppingtajm item.",
+      "fields": {
+        "list_id": {
+          "name": "List ID",
+          "description": "Numeric Shoppingtajm list ID."
+        },
+        "item_id": {
+          "name": "Item ID",
+          "description": "Numeric Shoppingtajm item ID."
+        },
+        "quantity": {
+          "name": "Quantity",
+          "description": "Visible item quantity."
+        },
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "Optional Shoppingtajm config entry ID when multiple entries are configured."
+        }
+      }
+    },
     "delete_item": {
       "name": "Delete item",
       "description": "Delete a Shoppingtajm item.",
@@ -111,6 +155,28 @@
         "list_id": {
           "name": "List ID",
           "description": "Numeric Shoppingtajm list ID."
+        },
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "Optional Shoppingtajm config entry ID when multiple entries are configured."
+        }
+      }
+    },
+    "reorder_items": {
+      "name": "Reorder items",
+      "description": "Persist the Shoppingtajm item sort order.",
+      "fields": {
+        "list_id": {
+          "name": "List ID",
+          "description": "Numeric Shoppingtajm list ID."
+        },
+        "status": {
+          "name": "Status",
+          "description": "Shoppingtajm item status to reorder."
+        },
+        "item_ids": {
+          "name": "Item IDs",
+          "description": "Ordered list of numeric Shoppingtajm item IDs."
         },
         "entry_id": {
           "name": "Entry ID",

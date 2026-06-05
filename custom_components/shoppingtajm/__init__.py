@@ -27,6 +27,7 @@ from .const import (
 )
 from .coordinator import ShoppingTajmCoordinator
 from .services import async_setup_services, async_unload_services
+from .websocket import async_register_websocket_commands
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class ShoppingTajmRuntimeData:
 async def async_setup(hass: HomeAssistant, _config: dict[str, Any]) -> bool:
     """Set up ShoppingTajm services."""
     await async_setup_services(hass)
+    async_register_websocket_commands(hass)
     return True
 
 

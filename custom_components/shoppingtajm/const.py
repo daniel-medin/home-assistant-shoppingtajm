@@ -20,14 +20,20 @@ PLATFORMS: Final = [Platform.SENSOR, Platform.BUTTON]
 
 ATTR_LIST_ID: Final = "list_id"
 ATTR_ITEM_ID: Final = "item_id"
+ATTR_ITEM_IDS: Final = "item_ids"
 ATTR_ITEM_NAME: Final = "item_name"
 ATTR_NAME: Final = "name"
+ATTR_QUANTITY: Final = "quantity"
+ATTR_STATUS: Final = "status"
 
 SERVICE_ADD_ITEM: Final = "add_item"
 SERVICE_COMPLETE_ITEM: Final = "complete_item"
 SERVICE_DELETE_ITEM: Final = "delete_item"
 SERVICE_CREATE_LIST: Final = "create_list"
 SERVICE_ACTIVATE_LIST: Final = "activate_list"
+SERVICE_REORDER_ITEMS: Final = "reorder_items"
+SERVICE_UPDATE_ITEM: Final = "update_item"
+SERVICE_SET_ITEM_QUANTITY: Final = "set_item_quantity"
 
 STATUS_ACTIVE: Final = "active"
 STATUS_COMPLETED: Final = "cart"

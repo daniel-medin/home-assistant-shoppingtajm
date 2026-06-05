@@ -89,7 +89,8 @@ type: custom:shoppingtajm-card
 entity: sensor.shoppingtajm_active_list_name
 ```
 
-The card can switch lists, add items, complete items, delete items, and refresh the active list sensor.
+The card can switch lists, add items, rename items, edit item quantities, complete items, delete items, read items aloud, and refresh the active list sensor.
+The visual editor supports background color, dark mode, opening completed items by default, logo visibility, and a default list. Active items can be reordered by dragging the handle on each row.
 
 ## Services
 
@@ -108,6 +109,26 @@ data:
 action: shoppingtajm.complete_item
 data:
   item_id: 456
+```
+
+### Rename an item
+
+```yaml
+action: shoppingtajm.update_item
+data:
+  list_id: 123
+  item_id: 456
+  item_name: "Mjolk"
+```
+
+### Set item quantity
+
+```yaml
+action: shoppingtajm.set_item_quantity
+data:
+  list_id: 123
+  item_id: 456
+  quantity: 2
 ```
 
 ### Delete an item
@@ -132,6 +153,18 @@ data:
 action: shoppingtajm.activate_list
 data:
   list_id: 123
+```
+
+### Reorder items
+
+```yaml
+action: shoppingtajm.reorder_items
+data:
+  list_id: 123
+  status: active
+  item_ids:
+    - 456
+    - 789
 ```
 
 If you configure multiple Shoppingtajm accounts, include `entry_id` in service calls.

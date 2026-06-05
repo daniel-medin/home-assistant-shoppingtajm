@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import Any, Self
-from urllib.parse import quote, urljoin
+from urllib.parse import quote, urlencode, urljoin
 
 from aiohttp import ClientConnectionError, ClientError, ClientResponse, ClientSession
 
@@ -47,6 +47,14 @@ class ShoppingTajmServerError(ShoppingTajmError):
 
 class ShoppingTajmValidationError(ShoppingTajmError):
     """ShoppingTajm rejected the request."""
+
+
+@dataclass(slots=True, frozen=True)
+class ShoppingTajmAudio:
+    """A ShoppingTajm item audio response."""
+
+    content: bytes
+    content_type: str
 
 
 @dataclass(slots=True, frozen=True)
@@ -167,8 +175,10 @@ class ShoppingTajmApiClient:
             return self._data_from_status(status)
 
         lists = tuple(await self.async_get_lists())
-        active_list = _pick_active_list(lists)
-        active_list_id = active_list.id if active_list else None
+        active_list_id = await self.async_get_active_list_id()
+        active_list = _list_by_id(lists, active_list_id) or _pick_active_list(lists)
+        if active_list_id is None and active_list is not None:
+            active_list_id = active_list.id
         items = (
             tuple(await self.async_get_items(active_list_id))
             if active_list_id is not None
@@ -204,6 +214,13 @@ class ShoppingTajmApiClient:
             ShoppingTajmList.from_api(item) for item in data if isinstance(item, dict)
         ]
 
+    async def async_get_active_list_id(self) -> int | None:
+        """Fetch the active ShoppingTajm list ID for the authenticated user."""
+        data = await self._request("GET", "/api/auth/me")
+        if not isinstance(data, dict):
+            raise ShoppingTajmValidationError("Unexpected account response from API")
+        return _as_optional_int(data.get("activeListId") or data.get("ActiveListId"))
+
     async def async_get_items(
         self, list_id: int | None = None
     ) -> list[ShoppingTajmItem]:
@@ -226,6 +243,33 @@ class ShoppingTajmApiClient:
             json={"listId": list_id, "name": item_name},
         )
 
+    async def async_update_item_name(
+        self,
+        list_id: int,
+        item_id: int,
+        item_name: str,
+    ) -> None:
+        """Update a ShoppingTajm item name."""
+        await self._request(
+            "PUT",
+            f"/api/items/{item_id}?{urlencode({'listId': str(list_id)})}",
+            json={"name": item_name},
+        )
+
+    async def async_set_item_quantity(
+        self,
+        list_id: int,
+        item_id: int,
+        quantity: int,
+    ) -> None:
+        """Set the visible ShoppingTajm item quantity."""
+        extra_count = max(quantity - 1, 0)
+        await self._request(
+            "PUT",
+            f"/api/items/{item_id}/extra-count?{urlencode({'listId': str(list_id)})}",
+            json={"extraCount": extra_count},
+        )
+
     async def async_complete_item(self, item_id: int) -> None:
         """Mark an item as completed/cart in the active list."""
         await self._request(
@@ -245,6 +289,44 @@ class ShoppingTajmApiClient:
     async def async_activate_list(self, list_id: int) -> None:
         """Set the active ShoppingTajm list."""
         await self._request("PUT", "/api/lists/active", json={"listId": list_id})
+
+    async def async_reorder_items(
+        self,
+        list_id: int,
+        status: str,
+        item_ids: list[int],
+    ) -> None:
+        """Persist ShoppingTajm item sort order."""
+        await self._request(
+            "PUT",
+            "/api/items/reorder",
+            json={"listId": list_id, "status": status, "itemIds": item_ids},
+        )
+
+    async def async_get_item_suggestions(
+        self,
+        query: str,
+        list_id: int,
+    ) -> list[dict[str, Any]]:
+        """Fetch item suggestions for the custom card autocomplete."""
+        params = {"listId": str(list_id)}
+        if query:
+            params["q"] = query
+        data = await self._request("GET", f"/api/items/suggestions?{urlencode(params)}")
+        if not isinstance(data, list):
+            raise ShoppingTajmValidationError("Unexpected suggestion response from API")
+        return [item for item in data if isinstance(item, dict)]
+
+    async def async_get_item_audio(
+        self,
+        list_id: int,
+        item_id: int,
+    ) -> ShoppingTajmAudio:
+        """Fetch item audio bytes for the custom card."""
+        return await self._request_bytes(
+            "GET",
+            f"/api/items/{item_id}/audio?{urlencode({'listId': str(list_id)})}",
+        )
 
     async def _request(
         self,
@@ -289,11 +371,73 @@ class ShoppingTajmApiClient:
 
         raise ShoppingTajmConnectionError("ShoppingTajm request failed") from last_error
 
+    async def _request_bytes(
+        self,
+        method: str,
+        path: str,
+    ) -> ShoppingTajmAudio:
+        """Make an API request and return raw response bytes."""
+        url = urljoin(f"{self.server_url}/", path.lstrip("/"))
+        last_error: Exception | None = None
+
+        for attempt in range(_MAX_ATTEMPTS):
+            try:
+                async with self._session.request(
+                    method,
+                    url,
+                    headers={
+                        "Authorization": f"Bearer {self._token}",
+                        "Accept": "audio/*, application/octet-stream",
+                    },
+                    timeout=20,
+                ) as response:
+                    await self._raise_for_status(response)
+                    return ShoppingTajmAudio(
+                        content=await response.read(),
+                        content_type=response.headers.get(
+                            "Content-Type",
+                            "audio/mpeg",
+                        ),
+                    )
+            except (ClientConnectionError, TimeoutError) as err:
+                last_error = err
+                if attempt == _MAX_ATTEMPTS - 1:
+                    raise ShoppingTajmConnectionError(
+                        "Could not connect to ShoppingTajm"
+                    ) from err
+            except ShoppingTajmServerError as err:
+                last_error = err
+                if attempt == _MAX_ATTEMPTS - 1:
+                    raise
+            except ClientError as err:
+                raise ShoppingTajmConnectionError(
+                    "Could not communicate with ShoppingTajm"
+                ) from err
+
+            await asyncio.sleep(0.5 * 2**attempt)
+
+        raise ShoppingTajmConnectionError("ShoppingTajm request failed") from last_error
+
     async def _handle_response(self, response: ClientResponse) -> Any:
         """Convert an HTTP response into JSON or an integration exception."""
+        await self._raise_for_status(response)
+
         if response.status == HTTPStatus.NO_CONTENT:
             return None
 
+        content_type = response.headers.get("Content-Type", "")
+        if "application/json" not in content_type.lower():
+            text = await response.text()
+            if not text:
+                return None
+            raise ShoppingTajmValidationError(
+                f"Unexpected ShoppingTajm response content type: {content_type}"
+            )
+
+        return await response.json()
+
+    async def _raise_for_status(self, response: ClientResponse) -> None:
+        """Raise a typed integration exception for unsuccessful responses."""
         if response.status == HTTPStatus.UNAUTHORIZED:
             raise ShoppingTajmAuthError("Invalid ShoppingTajm personal access token")
         if response.status == HTTPStatus.FORBIDDEN:
@@ -312,17 +456,6 @@ class ShoppingTajmApiClient:
             raise ShoppingTajmValidationError(
                 f"ShoppingTajm returned {response.status}: {text}"
             )
-
-        content_type = response.headers.get("Content-Type", "")
-        if "application/json" not in content_type.lower():
-            text = await response.text()
-            if not text:
-                return None
-            raise ShoppingTajmValidationError(
-                f"Unexpected ShoppingTajm response content type: {content_type}"
-            )
-
-        return await response.json()
 
     def _data_from_status(self, status: dict[str, Any]) -> ShoppingTajmData:
         """Normalize a rich `/api/ha/status` response."""
@@ -431,6 +564,19 @@ def _pick_active_list(lists: tuple[ShoppingTajmList, ...]) -> ShoppingTajmList |
         if raw.get("isActive") is True or raw.get("IsActive") is True:
             return item
     return lists[0]
+
+
+def _list_by_id(
+    lists: tuple[ShoppingTajmList, ...],
+    list_id: int | None,
+) -> ShoppingTajmList | None:
+    """Return a list matching the given ID."""
+    if list_id is None:
+        return None
+    for item in lists:
+        if item.id == list_id:
+            return item
+    return None
 
 
 def _as_int(value: Any) -> int:

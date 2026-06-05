@@ -1,25 +1,68 @@
-class ShoppingTajmCard extends HTMLElement {
-  static getStubConfig() {
-    return { entity: "sensor.shoppingtajm_active_list_name" };
+const DEFAULT_BACKGROUND = "#f7f6f1";
+
+class ShoppingtajmCard extends HTMLElement {
+  static getConfigElement() {
+    return document.createElement("shoppingtajm-card-editor");
+  }
+
+  static getStubConfig(hass) {
+    const entity =
+      Object.keys(hass?.states ?? {}).find(
+        (entityId) =>
+          entityId.startsWith("sensor.") &&
+          entityId.includes("shoppingtajm") &&
+          entityId.includes("active_list_name"),
+      ) ?? "sensor.shoppingtajm_active_list_name";
+    return {
+      entity,
+      background_color: DEFAULT_BACKGROUND,
+      dark_mode: false,
+      show_completed: true,
+      show_logo: true,
+    };
   }
 
   setConfig(config) {
     if (!config.entity) {
       throw new Error("Shoppingtajm card requires an entity");
     }
-    this._config = config;
+    this._config = {
+      background_color: DEFAULT_BACKGROUND,
+      dark_mode: false,
+      show_completed: true,
+      show_logo: true,
+      ...config,
+    };
     this._busy = false;
-    this._expandedCompleted = false;
-    this.attachShadow({ mode: "open" });
+    this._expandedCompleted = Boolean(this._config.show_completed);
+    this._lastSignature = "";
+    this._suggestions = [];
+    this._suggestionTimer = undefined;
+    this._draggedItemId = undefined;
+    this._defaultListApplied = false;
+    this._playing = false;
+    this._audio = undefined;
+    this._audioResolve = undefined;
+    this._editingNameItemId = undefined;
+    this._editingQuantityItemId = undefined;
+    this._pendingEditorFocus = undefined;
+    if (!this.shadowRoot) {
+      this.attachShadow({ mode: "open" });
+    }
   }
 
   set hass(hass) {
     this._hass = hass;
-    this._render();
+    this._applyDefaultList();
+    const signature = this._stateSignature();
+    if (signature !== this._lastSignature) {
+      this._lastSignature = signature;
+      this._render();
+    }
   }
 
   getCardSize() {
-    return 5;
+    return 6;
   }
 
   _state() {
@@ -36,13 +79,27 @@ class ShoppingTajmCard extends HTMLElement {
 
   async _call(service, data) {
     this._busy = true;
-    this._render();
     try {
       await this._hass.callService("shoppingtajm", service, data);
     } finally {
       this._busy = false;
-      this._render();
     }
+  }
+
+  async _applyDefaultList() {
+    const defaultListId = Number(this._config.default_list_id);
+    const activeListId = Number(this._attributes().list_id);
+    if (
+      this._defaultListApplied ||
+      !this._hass ||
+      !defaultListId ||
+      !activeListId ||
+      defaultListId === activeListId
+    ) {
+      return;
+    }
+    this._defaultListApplied = true;
+    await this._call("activate_list", { list_id: defaultListId });
   }
 
   async _addItem() {
@@ -54,6 +111,190 @@ class ShoppingTajmCard extends HTMLElement {
     }
     input.value = "";
     await this._call("add_item", { list_id: listId, item_name: name });
+  }
+
+  async _reorderItems(itemIds) {
+    const listId = Number(this._attributes().list_id);
+    if (!listId || itemIds.length < 2) {
+      return;
+    }
+    await this._call("reorder_items", {
+      list_id: listId,
+      status: "active",
+      item_ids: itemIds,
+    });
+  }
+
+  _startNameEdit(item) {
+    this._editingNameItemId = Number(item.id);
+    this._editingQuantityItemId = undefined;
+    this._pendingEditorFocus = ".name-edit";
+    this._render();
+  }
+
+  async _commitNameEdit(itemId, value) {
+    if (this._editingNameItemId !== itemId) {
+      return;
+    }
+    const listId = Number(this._attributes().list_id);
+    const item = this._itemById(itemId);
+    const itemName = value.trim();
+    this._editingNameItemId = undefined;
+    if (!listId || !item || !itemName || itemName === item.name) {
+      this._render();
+      return;
+    }
+    await this._call("update_item", { list_id: listId, item_id: itemId, item_name: itemName });
+  }
+
+  _startQuantityEdit(item) {
+    this._editingQuantityItemId = Number(item.id);
+    this._editingNameItemId = undefined;
+    this._pendingEditorFocus = ".quantity-edit";
+    this._render();
+  }
+
+  async _commitQuantityEdit(itemId, value) {
+    if (this._editingQuantityItemId !== itemId) {
+      return;
+    }
+    const listId = Number(this._attributes().list_id);
+    const item = this._itemById(itemId);
+    const quantity = Math.max(1, Math.min(1000, Number.parseInt(value, 10) || 1));
+    const currentQuantity = Number(item?.extra_count ?? 0) + 1;
+    this._editingQuantityItemId = undefined;
+    if (!listId || !item || quantity === currentQuantity) {
+      this._render();
+      return;
+    }
+    await this._call("set_item_quantity", { list_id: listId, item_id: itemId, quantity });
+  }
+
+  _cancelInlineEdit() {
+    this._editingNameItemId = undefined;
+    this._editingQuantityItemId = undefined;
+    this._render();
+  }
+
+  _itemById(itemId) {
+    return (this._attributes().items ?? []).find((item) => Number(item.id) === Number(itemId));
+  }
+
+  async _readList() {
+    const listId = Number(this._attributes().list_id);
+    const items = this._items("active");
+    if (!this._hass || !listId || !items.length || this._playing) {
+      return;
+    }
+
+    this._playing = true;
+    this._render();
+    try {
+      for (const item of items) {
+        if (!this._playing) {
+          break;
+        }
+        await this._playItemAudio(listId, Number(item.id));
+      }
+    } finally {
+      this._playing = false;
+      this._render();
+    }
+  }
+
+  _stopReading() {
+    this._playing = false;
+    if (this._audio) {
+      this._audio.pause();
+      this._audio.currentTime = 0;
+    }
+    if (this._audioResolve) {
+      this._audioResolve();
+      this._audioResolve = undefined;
+    }
+  }
+
+  async _playItemAudio(listId, itemId) {
+    try {
+      const audio = await this._hass.callWS({
+        type: "shoppingtajm/item_audio",
+        list_id: listId,
+        item_id: itemId,
+      });
+      await this._playDataAudio(audio.content_type, audio.data);
+    } catch (_err) {
+      // Missing item audio should not stop the whole list from being read.
+    }
+  }
+
+  _playDataAudio(contentType, data) {
+    return new Promise((resolve) => {
+      const audio = new Audio(`data:${contentType || "audio/mpeg"};base64,${data}`);
+      this._audio = audio;
+      this._audioResolve = resolve;
+      const cleanup = () => {
+        this._audioResolve = undefined;
+        resolve();
+      };
+      audio.addEventListener("ended", cleanup, { once: true });
+      audio.addEventListener("error", cleanup, { once: true });
+      audio.play().catch(cleanup);
+    });
+  }
+
+  _stateSignature() {
+    const attrs = this._attributes();
+    return JSON.stringify({
+      state: this._state()?.state,
+      listId: attrs.list_id,
+      lists: attrs.lists ?? [],
+      items: attrs.items ?? [],
+      config: {
+        background_color: this._config.background_color,
+        dark_mode: this._config.dark_mode,
+        show_completed: this._config.show_completed,
+        show_logo: this._config.show_logo,
+        playing: this._playing,
+      },
+    });
+  }
+
+  _scheduleSuggestions() {
+    window.clearTimeout(this._suggestionTimer);
+    const input = this.shadowRoot.querySelector(".new-item");
+    const query = input.value.trim();
+    this._suggestionTimer = window.setTimeout(() => {
+      this._fetchSuggestions(query);
+    }, 180);
+  }
+
+  async _fetchSuggestions(query) {
+    const listId = Number(this._attributes().list_id);
+    if (!this._hass || !listId) {
+      return;
+    }
+    try {
+      const response = await this._hass.callWS({
+        type: "shoppingtajm/item_suggestions",
+        query,
+        list_id: listId,
+      });
+      this._suggestions = response.suggestions ?? [];
+      this._updateSuggestions();
+    } catch (_err) {
+      this._suggestions = [];
+      this._updateSuggestions();
+    }
+  }
+
+  _updateSuggestions() {
+    const list = this.shadowRoot.querySelector("#shoppingtajm-suggestions");
+    if (!list) {
+      return;
+    }
+    list.innerHTML = this._suggestions
+      .map((item) => `<option value="${this._escape(item.name ?? item.Name ?? "")}"></option>`)
+      .join("");
   }
 
   _render() {
@@ -68,14 +309,26 @@ class ShoppingTajmCard extends HTMLElement {
     const completed = this._items("cart");
     const activeListId = Number(attrs.list_id);
     const disabled = this._busy ? "disabled" : "";
+    const playDisabled = this._busy || !active.length ? "disabled" : "";
+    const dark = this._config.dark_mode ? "dark" : "";
+    const background = this._escapeCssColor(this._config.background_color || DEFAULT_BACKGROUND);
 
     this.shadowRoot.innerHTML = `
-      <ha-card>
+      <ha-card class="${dark}" style="--shoppingtajm-card-bg: ${background}">
         <div class="card">
           <div class="header">
-            <div>
-              <img class="logo" src="/local/shoppingtajm-logo.png?v=20260605-logo" alt="Shoppingtajm">
-              <div class="subtitle">${this._escape(state?.state ?? "Unavailable")}</div>
+            <div class="brand">
+              <div class="brand-row">
+                ${
+                  this._config.show_logo
+                    ? `<img class="logo" src="/local/shoppingtajm-logo.png?v=20260605-logo" alt="Shoppingtajm">`
+                    : `<div class="title">Shoppingtajm</div>`
+                }
+                <button class="icon-button read-list" title="${this._playing ? "Stop reading" : "Read list"}" ${playDisabled}>
+                  <ha-icon icon="${this._playing ? "mdi:stop" : "mdi:speaker"}"></ha-icon>
+                </button>
+              </div>
+              <div class="subtitle">${this._escape(state?.state ?? "Shopping list")}</div>
             </div>
             <button class="icon-button refresh" title="Refresh" ${disabled}>
               <ha-icon icon="mdi:refresh"></ha-icon>
@@ -101,18 +354,19 @@ class ShoppingTajmCard extends HTMLElement {
           </div>
 
           <div class="add-row">
-            <input class="new-item" type="text" placeholder="Lagg till vara" ${disabled}>
+            <input class="new-item" type="text" placeholder="Lagg till vara" list="shoppingtajm-suggestions" autocomplete="off" ${disabled}>
+            <datalist id="shoppingtajm-suggestions">
+              ${this._suggestions
+                .map((item) => `<option value="${this._escape(item.name ?? item.Name ?? "")}"></option>`)
+                .join("")}
+            </datalist>
             <button class="add" title="Add item" ${disabled}>
               <ha-icon icon="mdi:plus"></ha-icon>
             </button>
           </div>
 
-          <div class="items">
-            ${
-              active.length
-                ? active.map((item) => this._itemTemplate(item, false, disabled)).join("")
-                : `<div class="empty">Inga aktiva varor.</div>`
-            }
+          <div class="items active-items">
+            ${active.length ? active.map((item) => this._itemTemplate(item, false, disabled)).join("") : this._previewOrEmpty()}
           </div>
 
           <button class="completed-toggle" ${disabled}>
@@ -128,6 +382,22 @@ class ShoppingTajmCard extends HTMLElement {
       <style>
         :host {
           display: block;
+        }
+        ha-card {
+          --shoppingtajm-text: #302c26;
+          --shoppingtajm-muted: #766f64;
+          --shoppingtajm-line: rgba(48, 44, 38, 0.14);
+          --shoppingtajm-input: rgba(255, 255, 255, 0.72);
+          --shoppingtajm-hover: rgba(48, 44, 38, 0.08);
+          background: var(--shoppingtajm-card-bg);
+          color: var(--shoppingtajm-text);
+        }
+        ha-card.dark {
+          --shoppingtajm-text: #f7f4ea;
+          --shoppingtajm-muted: #c4bdaa;
+          --shoppingtajm-line: rgba(247, 244, 234, 0.16);
+          --shoppingtajm-input: rgba(20, 20, 18, 0.54);
+          --shoppingtajm-hover: rgba(247, 244, 234, 0.1);
         }
         .card {
           padding: 16px;
@@ -145,20 +415,30 @@ class ShoppingTajmCard extends HTMLElement {
           justify-content: space-between;
           margin-bottom: 14px;
         }
+        .brand {
+          min-width: 0;
+        }
+        .brand-row {
+          align-items: center;
+          display: flex;
+          gap: 8px;
+          min-width: 0;
+        }
         .title {
-          color: var(--primary-text-color);
+          color: var(--shoppingtajm-text);
           font-size: 20px;
           font-weight: 600;
           line-height: 1.2;
         }
         .logo {
           display: block;
+          flex-shrink: 1;
           height: auto;
           max-width: 190px;
           width: min(52vw, 190px);
         }
         .subtitle {
-          color: var(--secondary-text-color);
+          color: var(--shoppingtajm-muted);
           font-size: 13px;
           margin-top: 2px;
         }
@@ -168,10 +448,10 @@ class ShoppingTajmCard extends HTMLElement {
         }
         .list-picker,
         .new-item {
-          background: var(--card-background-color);
-          border: 1px solid var(--divider-color);
+          background: var(--shoppingtajm-input);
+          border: 1px solid var(--shoppingtajm-line);
           border-radius: 6px;
-          color: var(--primary-text-color);
+          color: var(--shoppingtajm-text);
           font: inherit;
           min-height: 38px;
           min-width: 0;
@@ -181,7 +461,7 @@ class ShoppingTajmCard extends HTMLElement {
           flex: 1;
         }
         .counts {
-          color: var(--secondary-text-color);
+          color: var(--shoppingtajm-muted);
           display: flex;
           flex-shrink: 0;
           font-size: 12px;
@@ -196,7 +476,7 @@ class ShoppingTajmCard extends HTMLElement {
         button {
           background: none;
           border: 0;
-          color: var(--primary-text-color);
+          color: var(--shoppingtajm-text);
           cursor: pointer;
           font: inherit;
         }
@@ -208,51 +488,87 @@ class ShoppingTajmCard extends HTMLElement {
         }
         .icon-button,
         .add,
-        .delete {
+        .delete,
+        .done,
+        .drag-handle {
           align-items: center;
           border-radius: 50%;
           display: inline-flex;
-          height: 36px;
+          height: 34px;
           justify-content: center;
-          width: 36px;
+          width: 34px;
         }
         .icon-button:hover,
         .add:hover,
         .delete:hover,
-        .checkbox:hover {
-          background: var(--secondary-background-color);
+        .done:hover,
+        .drag-handle:hover {
+          background: var(--shoppingtajm-hover);
         }
         .item {
-          border-top: 1px solid var(--divider-color);
-          min-height: 42px;
-          padding: 4px 0;
+          border-top: 1px solid var(--shoppingtajm-line);
+          min-height: 46px;
+          padding: 5px 0;
         }
-        .checkbox {
-          align-items: center;
-          border: 1px solid var(--divider-color);
-          border-radius: 50%;
-          display: inline-flex;
+        .item.drag-over {
+          box-shadow: inset 0 2px 0 var(--primary-color);
+        }
+        .drag-handle {
+          color: var(--shoppingtajm-muted);
+          cursor: grab;
           flex-shrink: 0;
-          height: 28px;
-          justify-content: center;
-          width: 28px;
+        }
+        .drag-handle:active {
+          cursor: grabbing;
         }
         .name {
           flex: 1;
           min-width: 0;
           overflow-wrap: anywhere;
         }
-        .extra {
-          color: var(--secondary-text-color);
+        .name-edit {
+          flex: 1;
+          min-width: 0;
+        }
+        .name-edit,
+        .quantity-edit {
+          background: var(--shoppingtajm-input);
+          border: 1px solid var(--shoppingtajm-line);
+          border-radius: 6px;
+          color: var(--shoppingtajm-text);
+          font: inherit;
+          min-height: 34px;
+          padding: 0 8px;
+        }
+        .quantity-pill {
+          background: var(--shoppingtajm-hover);
+          border: 1px solid var(--shoppingtajm-line);
+          border-radius: 999px;
+          color: var(--shoppingtajm-muted);
+          flex-shrink: 0;
           font-size: 12px;
-          margin-left: 6px;
+          line-height: 1;
+          min-width: 34px;
+          padding: 5px 8px;
+        }
+        .quantity-edit {
+          flex-shrink: 0;
+          text-align: center;
+          width: 64px;
+        }
+        .actions {
+          align-items: center;
+          display: flex;
+          flex-shrink: 0;
+          gap: 4px;
+          margin-left: auto;
         }
         .completed .name {
-          color: var(--secondary-text-color);
+          color: var(--shoppingtajm-muted);
           text-decoration: line-through;
         }
         .completed-toggle {
-          color: var(--secondary-text-color);
+          color: var(--shoppingtajm-muted);
           justify-content: center;
           margin-top: 8px;
           min-height: 36px;
@@ -265,20 +581,32 @@ class ShoppingTajmCard extends HTMLElement {
           display: block;
         }
         .empty {
-          border-top: 1px solid var(--divider-color);
-          color: var(--secondary-text-color);
+          border-top: 1px solid var(--shoppingtajm-line);
+          color: var(--shoppingtajm-muted);
           padding: 14px 0;
           text-align: center;
         }
       </style>
     `;
 
+    this._bindEvents();
+  }
+
+  _bindEvents() {
     this.shadowRoot.querySelector(".refresh")?.addEventListener("click", () => {
       this._hass.callService("homeassistant", "update_entity", {
         entity_id: this._config.entity,
       });
     });
+    this.shadowRoot.querySelector(".read-list")?.addEventListener("click", () => {
+      if (this._playing) {
+        this._stopReading();
+      } else {
+        this._readList();
+      }
+    });
     this.shadowRoot.querySelector(".list-picker")?.addEventListener("change", (event) => {
+      this._defaultListApplied = true;
       this._call("activate_list", { list_id: Number(event.target.value) });
     });
     this.shadowRoot.querySelector(".add")?.addEventListener("click", () => this._addItem());
@@ -286,6 +614,9 @@ class ShoppingTajmCard extends HTMLElement {
       if (event.key === "Enter") {
         this._addItem();
       }
+    });
+    this.shadowRoot.querySelector(".new-item")?.addEventListener("input", () => {
+      this._scheduleSuggestions();
     });
     this.shadowRoot.querySelector(".completed-toggle")?.addEventListener("click", () => {
       this._expandedCompleted = !this._expandedCompleted;
@@ -301,20 +632,177 @@ class ShoppingTajmCard extends HTMLElement {
         this._call("delete_item", { item_id: Number(button.dataset.delete) });
       });
     });
+    this.shadowRoot.querySelectorAll("[data-edit-name]").forEach((name) => {
+      name.addEventListener("dblclick", () => {
+        const item = this._itemById(Number(name.dataset.editName));
+        if (item) {
+          this._startNameEdit(item);
+        }
+      });
+    });
+    this.shadowRoot.querySelectorAll(".name-edit").forEach((input) => {
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          input.blur();
+        }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          this._cancelInlineEdit();
+        }
+      });
+      input.addEventListener("blur", () => {
+        this._commitNameEdit(Number(input.dataset.itemId), input.value);
+      });
+    });
+    this.shadowRoot.querySelectorAll("[data-edit-quantity]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const item = this._itemById(Number(button.dataset.editQuantity));
+        if (item) {
+          this._startQuantityEdit(item);
+        }
+      });
+    });
+    this.shadowRoot.querySelectorAll(".quantity-edit").forEach((input) => {
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          input.blur();
+        }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          this._cancelInlineEdit();
+        }
+      });
+      input.addEventListener("blur", () => {
+        this._commitQuantityEdit(Number(input.dataset.itemId), input.value);
+      });
+    });
+    this.shadowRoot.querySelectorAll(".active-items .item").forEach((row) => {
+      row.addEventListener("dragstart", (event) => {
+        this._draggedItemId = Number(row.dataset.itemId);
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", String(this._draggedItemId));
+      });
+      row.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        row.classList.add("drag-over");
+      });
+      row.addEventListener("dragleave", () => row.classList.remove("drag-over"));
+      row.addEventListener("drop", (event) => {
+        event.preventDefault();
+        row.classList.remove("drag-over");
+        this._handleDrop(Number(row.dataset.itemId));
+      });
+      row.addEventListener("dragend", () => {
+        this.shadowRoot.querySelectorAll(".drag-over").forEach((item) => item.classList.remove("drag-over"));
+      });
+    });
+    this._focusPendingEditor();
+  }
+
+  _handleDrop(targetItemId) {
+    const sourceItemId = Number(this._draggedItemId);
+    if (!sourceItemId || !targetItemId || sourceItemId === targetItemId) {
+      return;
+    }
+    const itemIds = this._items("active").map((item) => Number(item.id));
+    const sourceIndex = itemIds.indexOf(sourceItemId);
+    const targetIndex = itemIds.indexOf(targetItemId);
+    if (sourceIndex < 0 || targetIndex < 0) {
+      return;
+    }
+    itemIds.splice(sourceIndex, 1);
+    itemIds.splice(targetIndex, 0, sourceItemId);
+    this._reorderItems(itemIds);
   }
 
   _itemTemplate(item, completed, disabled) {
-    const icon = completed ? "mdi:check" : "mdi:cart-check";
-    const extra = item.extra_count ? `<span class="extra">x${item.extra_count + 1}</span>` : "";
+    const quantity = Number(item.extra_count ?? 0) + 1;
+    const itemId = Number(item.id);
+    const editingName = this._editingNameItemId === itemId;
+    const editingQuantity = this._editingQuantityItemId === itemId;
+    const draggable = completed || editingName || editingQuantity ? "" : "draggable=\"true\"";
+    const name = editingName
+      ? `<input class="name-edit" data-item-id="${item.id}" value="${this._escape(item.name)}" ${disabled}>`
+      : `<div class="name" data-edit-name="${item.id}" title="Double-click to edit">${this._escape(item.name)}</div>`;
+    const quantityControl = editingQuantity
+      ? `<input class="quantity-edit" data-item-id="${item.id}" type="number" min="1" max="1000" value="${quantity}" ${disabled}>`
+      : `<button class="quantity-pill" data-edit-quantity="${item.id}" title="Edit quantity" ${disabled}>${quantity}</button>`;
+    return `
+      <div class="item" data-item-id="${item.id}" ${draggable}>
+        ${
+          completed
+            ? `<span class="drag-handle" title="Done"><ha-icon icon="mdi:check"></ha-icon></span>`
+            : `<button class="drag-handle" title="Drag to reorder" ${disabled}>
+                <ha-icon icon="mdi:drag"></ha-icon>
+              </button>`
+        }
+        ${name}
+        <div class="actions">
+          ${quantityControl}
+          ${
+            completed
+              ? ""
+              : `<button class="done" data-complete="${item.id}" title="Mark as done" ${disabled}>
+                  <ha-icon icon="mdi:check"></ha-icon>
+                </button>`
+          }
+          <button class="delete" data-delete="${item.id}" title="Delete item" ${disabled}>
+            <ha-icon icon="mdi:delete-outline"></ha-icon>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  _focusPendingEditor() {
+    if (!this._pendingEditorFocus) {
+      return;
+    }
+    const selector = this._pendingEditorFocus;
+    this._pendingEditorFocus = undefined;
+    window.requestAnimationFrame(() => {
+      const input = this.shadowRoot?.querySelector(selector);
+      input?.focus();
+      input?.select();
+    });
+  }
+
+  _previewOrEmpty() {
+    if (this._state()) {
+      return `<div class="empty">Inga aktiva varor.</div>`;
+    }
     return `
       <div class="item">
-        <button class="checkbox" data-complete="${item.id}" title="Complete item" ${disabled}>
-          <ha-icon icon="${icon}"></ha-icon>
+        <button class="drag-handle" title="Drag to reorder" disabled>
+          <ha-icon icon="mdi:drag"></ha-icon>
         </button>
-        <div class="name">${this._escape(item.name)}${extra}</div>
-        <button class="delete" data-delete="${item.id}" title="Delete item" ${disabled}>
-          <ha-icon icon="mdi:delete-outline"></ha-icon>
+        <div class="name">Mjolk</div>
+        <div class="actions">
+          <span class="quantity-pill">2</span>
+          <button class="done" title="Mark as done" disabled>
+            <ha-icon icon="mdi:check"></ha-icon>
+          </button>
+          <button class="delete" title="Delete item" disabled>
+            <ha-icon icon="mdi:delete-outline"></ha-icon>
+          </button>
+        </div>
+      </div>
+      <div class="item">
+        <button class="drag-handle" title="Drag to reorder" disabled>
+          <ha-icon icon="mdi:drag"></ha-icon>
         </button>
+          <div class="name">Kaffe</div>
+          <div class="actions">
+          <span class="quantity-pill">1</span>
+          <button class="done" title="Mark as done" disabled>
+            <ha-icon icon="mdi:check"></ha-icon>
+          </button>
+          <button class="delete" title="Delete item" disabled>
+            <ha-icon icon="mdi:delete-outline"></ha-icon>
+          </button>
+        </div>
       </div>
     `;
   }
@@ -327,13 +815,172 @@ class ShoppingTajmCard extends HTMLElement {
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
   }
+
+  _escapeCssColor(value) {
+    const color = String(value ?? "").trim();
+    return /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(color) ? color : DEFAULT_BACKGROUND;
+  }
 }
 
-customElements.define("shoppingtajm-card", ShoppingTajmCard);
+class ShoppingtajmCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = {
+      background_color: DEFAULT_BACKGROUND,
+      dark_mode: false,
+      show_completed: true,
+      show_logo: true,
+      ...config,
+    };
+    if (!this.shadowRoot) {
+      this.attachShadow({ mode: "open" });
+    }
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  _state() {
+    return this._hass?.states?.[this._config?.entity];
+  }
+
+  _lists() {
+    return this._state()?.attributes?.lists ?? [];
+  }
+
+  _updateConfig(patch) {
+    this._config = { ...this._config, ...patch };
+    this.dispatchEvent(
+      new CustomEvent("config-changed", {
+        detail: { config: this._config },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    this._render();
+  }
+
+  _render() {
+    if (!this.shadowRoot || !this._config) {
+      return;
+    }
+    const lists = this._lists();
+    this.shadowRoot.innerHTML = `
+      <div class="editor">
+        <label>
+          <span>Entity</span>
+          <input class="entity" value="${this._escape(this._config.entity ?? "")}">
+        </label>
+        <label>
+          <span>Default list</span>
+          <select class="default-list">
+            <option value="">Current active list</option>
+            ${lists
+              .map(
+                (list) => `
+                  <option value="${list.id}" ${String(this._config.default_list_id ?? "") === String(list.id) ? "selected" : ""}>
+                    ${this._escape(list.name)}
+                  </option>
+                `,
+              )
+              .join("")}
+          </select>
+        </label>
+        <label>
+          <span>Background</span>
+          <input class="background" type="color" value="${this._escape(this._config.background_color ?? DEFAULT_BACKGROUND)}">
+        </label>
+        <label class="toggle">
+          <span>Dark mode</span>
+          <input class="dark-mode" type="checkbox" ${this._config.dark_mode ? "checked" : ""}>
+        </label>
+        <label class="toggle">
+          <span>Show completed open</span>
+          <input class="show-completed" type="checkbox" ${this._config.show_completed ? "checked" : ""}>
+        </label>
+        <label class="toggle">
+          <span>Show logo</span>
+          <input class="show-logo" type="checkbox" ${this._config.show_logo ? "checked" : ""}>
+        </label>
+      </div>
+      <style>
+        .editor {
+          display: grid;
+          gap: 14px;
+          padding: 12px;
+        }
+        label {
+          display: grid;
+          gap: 6px;
+        }
+        .toggle {
+          align-items: center;
+          display: flex;
+          justify-content: space-between;
+        }
+        span {
+          color: var(--secondary-text-color);
+          font-size: 12px;
+        }
+        input,
+        select {
+          background: var(--card-background-color);
+          border: 1px solid var(--divider-color);
+          border-radius: 6px;
+          color: var(--primary-text-color);
+          font: inherit;
+          min-height: 36px;
+          padding: 0 8px;
+        }
+        input[type="color"] {
+          padding: 2px;
+        }
+      </style>
+    `;
+
+    this.shadowRoot.querySelector(".entity")?.addEventListener("change", (event) => {
+      this._updateConfig({ entity: event.target.value.trim() });
+    });
+    this.shadowRoot.querySelector(".default-list")?.addEventListener("change", (event) => {
+      const value = event.target.value;
+      this._updateConfig({ default_list_id: value ? Number(value) : undefined });
+    });
+    this.shadowRoot.querySelector(".background")?.addEventListener("input", (event) => {
+      this._updateConfig({ background_color: event.target.value });
+    });
+    this.shadowRoot.querySelector(".dark-mode")?.addEventListener("change", (event) => {
+      this._updateConfig({ dark_mode: event.target.checked });
+    });
+    this.shadowRoot.querySelector(".show-completed")?.addEventListener("change", (event) => {
+      this._updateConfig({ show_completed: event.target.checked });
+    });
+    this.shadowRoot.querySelector(".show-logo")?.addEventListener("change", (event) => {
+      this._updateConfig({ show_logo: event.target.checked });
+    });
+  }
+
+  _escape(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+}
+
+customElements.define("shoppingtajm-card", ShoppingtajmCard);
+customElements.define("shoppingtajm-card-editor", ShoppingtajmCardEditor);
 
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "shoppingtajm-card",
   name: "Shoppingtajm Card",
   description: "Manage Shoppingtajm lists and items.",
+  documentationURL: "https://github.com/daniel-medin/home-assistant-shoppingtajm",
+  image: "/local/shoppingtajm-logo.png?v=20260605-logo",
+  logo: "/local/shoppingtajm-logo.png?v=20260605-logo",
+  preview: true,
 });
