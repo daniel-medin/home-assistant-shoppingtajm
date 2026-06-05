@@ -15,6 +15,7 @@ The integration is built for HACS and uses the Shoppingtajm REST API with Person
 - Sensors for total lists, active list, remaining items, completed items, and last update time
 - Button entity to refresh Shoppingtajm data immediately
 - Home Assistant services for adding, completing, deleting, and creating lists
+- Custom Lovelace card for switching lists and managing items
 - Diagnostics with token redaction
 - Config entry migration hook
 - HACS, Ruff, MyPy, HACS validation, and hassfest workflow files
@@ -65,6 +66,31 @@ Button:
 
 - `button.shoppingtajm_refresh_shopping_data`
 
+The active list sensor also exposes `lists` and `items` attributes for the custom dashboard card.
+
+## Dashboard Card
+
+Register the card resource:
+
+```text
+/local/shoppingtajm-card.js
+```
+
+Use resource type:
+
+```text
+JavaScript Module
+```
+
+Then add a manual dashboard card:
+
+```yaml
+type: custom:shoppingtajm-card
+entity: sensor.shoppingtajm_active_list_name
+```
+
+The card can switch lists, add items, complete items, delete items, and refresh the active list sensor.
+
 ## Services
 
 ### Add an item
@@ -98,6 +124,14 @@ data:
 action: shoppingtajm.create_list
 data:
   name: "Veckohandling"
+```
+
+### Activate a list
+
+```yaml
+action: shoppingtajm.activate_list
+data:
+  list_id: 123
 ```
 
 If you configure multiple Shoppingtajm accounts, include `entry_id` in service calls.

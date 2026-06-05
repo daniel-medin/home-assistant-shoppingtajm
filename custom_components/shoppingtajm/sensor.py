@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -108,15 +109,37 @@ class ShoppingTajmSensor(ShoppingTajmEntity, SensorEntity):
         return self.entity_description.value_fn(data)
 
     @property
-    def extra_state_attributes(self) -> dict[str, int | str] | None:
-        """Return useful attributes for the active list sensor."""
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return useful attributes for the active list sensor and custom cards."""
         data = self.coordinator.data
         if data is None or self.entity_description.key != "active_list_name":
             return None
-        attributes: dict[str, int | str] = {}
+        attributes: dict[str, Any] = {}
         if data.active_list_id is not None:
             attributes["list_id"] = data.active_list_id
         attributes["server_url"] = data.server_url
+        attributes["remaining_items"] = data.remaining_items
+        attributes["completed_items"] = data.completed_items
+        attributes["lists"] = [
+            {
+                "id": item.id,
+                "name": item.name,
+                "item_count": item.item_count,
+                "update_count": item.update_count,
+                "is_active": item.id == data.active_list_id,
+            }
+            for item in data.lists
+        ]
+        attributes["items"] = [
+            {
+                "id": item.id,
+                "name": item.name,
+                "status": item.status,
+                "extra_count": item.extra_count,
+                "created_at": item.created_at,
+            }
+            for item in data.items
+        ]
         return attributes
 
 

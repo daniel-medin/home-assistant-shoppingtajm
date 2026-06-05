@@ -51,3 +51,16 @@ create_list:
       required: false
       selector:
         text:
+
+activate_list:
+  fields:
+    list_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    entry_id:
+      required: false
+      selector:
+        text:

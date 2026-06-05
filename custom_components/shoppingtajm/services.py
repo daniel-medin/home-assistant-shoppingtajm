@@ -18,6 +18,7 @@ from .const import (
     ATTR_NAME,
     CONF_ENTRY_ID,
     DOMAIN,
+    SERVICE_ACTIVATE_LIST,
     SERVICE_ADD_ITEM,
     SERVICE_COMPLETE_ITEM,
     SERVICE_CREATE_LIST,
@@ -45,6 +46,13 @@ ITEM_SCHEMA = vol.Schema(
 CREATE_LIST_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_NAME): cv.string,
+        vol.Optional(CONF_ENTRY_ID): cv.string,
+    }
+)
+
+ACTIVATE_LIST_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_LIST_ID): cv.positive_int,
         vol.Optional(CONF_ENTRY_ID): cv.string,
     }
 )
@@ -86,6 +94,13 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             raise ServiceValidationError("name must not be empty")
         await _call_api(coordinator, coordinator.api.async_create_list(name))
 
+    async def activate_list(call: ServiceCall) -> None:
+        coordinator = _coordinator_from_call(hass, call)
+        await _call_api(
+            coordinator,
+            coordinator.api.async_activate_list(int(call.data[ATTR_LIST_ID])),
+        )
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_ADD_ITEM,
@@ -110,6 +125,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         create_list,
         schema=CREATE_LIST_SCHEMA,
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_ACTIVATE_LIST,
+        activate_list,
+        schema=ACTIVATE_LIST_SCHEMA,
+    )
 
 
 async def async_unload_services(hass: HomeAssistant) -> None:
@@ -119,6 +140,7 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_COMPLETE_ITEM,
         SERVICE_DELETE_ITEM,
         SERVICE_CREATE_LIST,
+        SERVICE_ACTIVATE_LIST,
     ):
         hass.services.async_remove(DOMAIN, service)
 

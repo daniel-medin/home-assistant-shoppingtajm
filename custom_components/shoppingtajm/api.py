@@ -242,6 +242,10 @@ class ShoppingTajmApiClient:
         """Create and activate a ShoppingTajm list."""
         await self._request("POST", "/api/lists", json={"name": name, "activate": True})
 
+    async def async_activate_list(self, list_id: int) -> None:
+        """Set the active ShoppingTajm list."""
+        await self._request("PUT", "/api/lists/active", json={"listId": list_id})
+
     async def _request(
         self,
         method: str,

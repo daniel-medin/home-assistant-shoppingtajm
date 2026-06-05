@@ -27,6 +27,7 @@ SERVICE_ADD_ITEM: Final = "add_item"
 SERVICE_COMPLETE_ITEM: Final = "complete_item"
 SERVICE_DELETE_ITEM: Final = "delete_item"
 SERVICE_CREATE_LIST: Final = "create_list"
+SERVICE_ACTIVATE_LIST: Final = "activate_list"
 
 STATUS_ACTIVE: Final = "active"
 STATUS_COMPLETED: Final = "cart"
