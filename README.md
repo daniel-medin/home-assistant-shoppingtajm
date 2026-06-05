@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="custom_components/shoppingtajm/brand/logo.png" alt="ShoppingTajm" width="640">
+</p>
+
 # Shoppingtajm for Home Assistant
 
 Custom Home Assistant integration for [Shoppingtajm](https://shoppingtajm.se), a Swedish shopping list app.
