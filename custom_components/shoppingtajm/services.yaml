@@ -1,0 +1,53 @@
+add_item:
+  fields:
+    list_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    item_name:
+      required: true
+      selector:
+        text:
+    entry_id:
+      required: false
+      selector:
+        text:
+
+complete_item:
+  fields:
+    item_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    entry_id:
+      required: false
+      selector:
+        text:
+
+delete_item:
+  fields:
+    item_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    entry_id:
+      required: false
+      selector:
+        text:
+
+create_list:
+  fields:
+    name:
+      required: true
+      selector:
+        text:
+    entry_id:
+      required: false
+      selector:
+        text:

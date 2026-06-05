@@ -1,0 +1,108 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect ShoppingTajm",
+        "description": "Enter your ShoppingTajm server URL and Personal Access Token.",
+        "data": {
+          "server_url": "Server URL",
+          "personal_access_token": "Personal Access Token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to ShoppingTajm.",
+      "invalid_auth": "The Personal Access Token is invalid.",
+      "unknown": "Unexpected error while connecting to ShoppingTajm."
+    },
+    "abort": {
+      "already_configured": "This ShoppingTajm account is already configured."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_lists": {
+        "name": "Total lists"
+      },
+      "active_list_name": {
+        "name": "Active list name"
+      },
+      "remaining_items": {
+        "name": "Remaining items"
+      },
+      "completed_items": {
+        "name": "Completed items"
+      },
+      "last_updated": {
+        "name": "Last updated"
+      }
+    },
+    "button": {
+      "refresh_shopping_data": {
+        "name": "Refresh shopping data"
+      }
+    }
+  },
+  "services": {
+    "add_item": {
+      "name": "Add item",
+      "description": "Add an item to a ShoppingTajm list.",
+      "fields": {
+        "list_id": {
+          "name": "List ID",
+          "description": "Numeric ShoppingTajm list ID."
+        },
+        "item_name": {
+          "name": "Item name",
+          "description": "Name of the item to add."
+        },
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "Optional ShoppingTajm config entry ID when multiple entries are configured."
+        }
+      }
+    },
+    "complete_item": {
+      "name": "Complete item",
+      "description": "Move a ShoppingTajm item to the completed/cart state.",
+      "fields": {
+        "item_id": {
+          "name": "Item ID",
+          "description": "Numeric ShoppingTajm item ID."
+        },
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "Optional ShoppingTajm config entry ID when multiple entries are configured."
+        }
+      }
+    },
+    "delete_item": {
+      "name": "Delete item",
+      "description": "Delete a ShoppingTajm item.",
+      "fields": {
+        "item_id": {
+          "name": "Item ID",
+          "description": "Numeric ShoppingTajm item ID."
+        },
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "Optional ShoppingTajm config entry ID when multiple entries are configured."
+        }
+      }
+    },
+    "create_list": {
+      "name": "Create list",
+      "description": "Create and activate a ShoppingTajm list.",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "Name of the new list."
+        },
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "Optional ShoppingTajm config entry ID when multiple entries are configured."
+        }
+      }
+    }
+  }
+}

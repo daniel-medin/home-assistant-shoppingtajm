@@ -1,0 +1,36 @@
+"""Constants for the ShoppingTajm integration."""
+
+from __future__ import annotations
+
+from datetime import timedelta
+from typing import Final
+
+from homeassistant.const import Platform
+
+DOMAIN: Final = "shoppingtajm"
+NAME: Final = "ShoppingTajm"
+DEFAULT_SERVER_URL: Final = "https://shoppingtajm.se"
+DEFAULT_SCAN_INTERVAL: Final = timedelta(seconds=60)
+
+CONF_SERVER_URL: Final = "server_url"
+CONF_PAT: Final = "personal_access_token"
+CONF_ENTRY_ID: Final = "entry_id"
+
+PLATFORMS: Final = [Platform.SENSOR, Platform.BUTTON]
+
+ATTR_LIST_ID: Final = "list_id"
+ATTR_ITEM_ID: Final = "item_id"
+ATTR_ITEM_NAME: Final = "item_name"
+ATTR_NAME: Final = "name"
+
+SERVICE_ADD_ITEM: Final = "add_item"
+SERVICE_COMPLETE_ITEM: Final = "complete_item"
+SERVICE_DELETE_ITEM: Final = "delete_item"
+SERVICE_CREATE_LIST: Final = "create_list"
+
+STATUS_ACTIVE: Final = "active"
+STATUS_COMPLETED: Final = "cart"
+STATUS_LATER: Final = "later"
+
+MIN_SUPPORTED_ENTRY_VERSION: Final = 1
+CURRENT_ENTRY_VERSION: Final = 1
