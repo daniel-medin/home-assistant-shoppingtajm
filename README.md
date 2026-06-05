@@ -1,15 +1,15 @@
-# ShoppingTajm for Home Assistant
+# Shoppingtajm for Home Assistant
 
-Custom Home Assistant integration for [ShoppingTajm](https://shoppingtajm.se), a Swedish shopping list app.
+Custom Home Assistant integration for [Shoppingtajm](https://shoppingtajm.se), a Swedish shopping list app.
 
-The integration is built for HACS and uses the ShoppingTajm REST API with Personal Access Token authentication.
+The integration is built for HACS and uses the Shoppingtajm REST API with Personal Access Token authentication.
 
 ## Features
 
 - UI config flow for server URL and Personal Access Token
 - 60 second polling through `DataUpdateCoordinator`
 - Sensors for total lists, active list, remaining items, completed items, and last update time
-- Button entity to refresh ShoppingTajm data immediately
+- Button entity to refresh Shoppingtajm data immediately
 - Home Assistant services for adding, completing, deleting, and creating lists
 - Diagnostics with token redaction
 - Config entry migration hook
@@ -27,25 +27,25 @@ The integration is built for HACS and uses the ShoppingTajm REST API with Person
    ```
 
 5. Select category **Integration**.
-6. Install **ShoppingTajm**.
+6. Install **Shoppingtajm**.
 7. Restart Home Assistant.
 
-## Add ShoppingTajm
+## Add Shoppingtajm
 
-1. In ShoppingTajm, create a Personal Access Token:
+1. In Shoppingtajm, create a Personal Access Token:
 
    ```text
    Installningar -> Avancerade installningar -> API-nycklar
    ```
 
 2. In Home Assistant, go to **Settings -> Devices & services -> Add integration**.
-3. Search for **ShoppingTajm**.
+3. Search for **Shoppingtajm**.
 4. Enter:
 
    - Server URL, for example `https://shoppingtajm.se`
    - Personal Access Token, for example `stj_...`
 
-The config flow validates the token against `GET /api/ha/status`. For older ShoppingTajm servers without that endpoint, the integration falls back to the documented list API after attempting the status endpoint.
+The config flow validates the token against `GET /api/ha/status`. For older Shoppingtajm servers without that endpoint, the integration falls back to the documented list API after attempting the status endpoint.
 
 ## Entities
 
@@ -96,7 +96,7 @@ data:
   name: "Veckohandling"
 ```
 
-If you configure multiple ShoppingTajm accounts, include `entry_id` in service calls.
+If you configure multiple Shoppingtajm accounts, include `entry_id` in service calls.
 
 ## Automation Examples
 
@@ -115,7 +115,7 @@ actions:
       item_name: "Kaffe"
 ```
 
-Refresh ShoppingTajm every morning:
+Refresh Shoppingtajm every morning:
 
 ```yaml
 alias: Refresh ShoppingTajm in the morning
