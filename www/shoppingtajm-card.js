@@ -434,7 +434,6 @@ class ShoppingtajmCard extends HTMLElement {
       return;
     }
 
-    const state = this._state();
     const attrs = this._attributes();
     const lists = attrs.lists ?? [];
     const active = this._items("active");
@@ -459,7 +458,6 @@ class ShoppingtajmCard extends HTMLElement {
                     : `<div class="title">Shoppingtajm</div>`
                 }
               </div>
-              <div class="subtitle">${this._escape(state?.state ?? "Shopping list")}</div>
             </div>
             <div class="header-actions">
               ${
@@ -472,7 +470,7 @@ class ShoppingtajmCard extends HTMLElement {
               ${
                 soundEnabled
                   ? `<button class="icon-button read-list" title="${this._playing ? "Stop reading" : "Read list"}" ${playDisabled}>
-                      <ha-icon icon="${this._playing ? "mdi:stop" : "mdi:speaker"}"></ha-icon>
+                      <ha-icon icon="${this._playing ? "mdi:stop" : "mdi:bullhorn"}"></ha-icon>
                     </button>`
                   : ""
               }
@@ -482,8 +480,14 @@ class ShoppingtajmCard extends HTMLElement {
             </div>
           </div>
 
-          <div class="controls">
-            <select class="list-picker" ${disabled}>
+          <div class="add-row">
+            <input class="new-item" type="text" placeholder="Lagg till vara" list="shoppingtajm-suggestions" autocomplete="off" ${disabled}>
+            <datalist id="shoppingtajm-suggestions">
+              ${this._suggestions
+                .map((item) => `<option value="${this._escape(item.name ?? item.Name ?? "")}"></option>`)
+                .join("")}
+            </datalist>
+            <select class="list-picker" title="Choose list" ${disabled}>
               ${lists
                 .map(
                   (list) => `
@@ -494,15 +498,6 @@ class ShoppingtajmCard extends HTMLElement {
                 )
                 .join("")}
             </select>
-          </div>
-
-          <div class="add-row">
-            <input class="new-item" type="text" placeholder="Lagg till vara" list="shoppingtajm-suggestions" autocomplete="off" ${disabled}>
-            <datalist id="shoppingtajm-suggestions">
-              ${this._suggestions
-                .map((item) => `<option value="${this._escape(item.name ?? item.Name ?? "")}"></option>`)
-                .join("")}
-            </datalist>
             <button class="add" title="Add item" ${disabled}>
               <ha-icon icon="mdi:plus"></ha-icon>
             </button>
@@ -528,20 +523,31 @@ class ShoppingtajmCard extends HTMLElement {
         }
         ha-card {
           --shoppingtajm-fullscreen-height: calc(100dvh - 96px);
+          --shoppingtajm-surface: var(--shoppingtajm-card-bg);
           --shoppingtajm-text: #302c26;
           --shoppingtajm-muted: #766f64;
           --shoppingtajm-line: rgba(48, 44, 38, 0.14);
           --shoppingtajm-input: rgba(255, 255, 255, 0.72);
+          --shoppingtajm-input-focus: #ffffff;
           --shoppingtajm-hover: rgba(48, 44, 38, 0.08);
-          background: var(--shoppingtajm-card-bg);
+          --shoppingtajm-pill: rgba(48, 44, 38, 0.08);
+          --shoppingtajm-button-hover: rgba(48, 44, 38, 0.1);
+          --shoppingtajm-scrollbar: rgba(48, 44, 38, 0.28);
+          background: var(--shoppingtajm-surface);
           color: var(--shoppingtajm-text);
         }
         ha-card.dark {
-          --shoppingtajm-text: #f7f4ea;
-          --shoppingtajm-muted: #c4bdaa;
-          --shoppingtajm-line: rgba(247, 244, 234, 0.16);
-          --shoppingtajm-input: rgba(20, 20, 18, 0.54);
-          --shoppingtajm-hover: rgba(247, 244, 234, 0.1);
+          --shoppingtajm-surface: #171a1f;
+          --shoppingtajm-text: #f6f7f2;
+          --shoppingtajm-muted: #aeb6bf;
+          --shoppingtajm-line: rgba(246, 247, 242, 0.14);
+          --shoppingtajm-input: #232831;
+          --shoppingtajm-input-focus: #2b313b;
+          --shoppingtajm-hover: rgba(246, 247, 242, 0.08);
+          --shoppingtajm-pill: #252b34;
+          --shoppingtajm-button-hover: rgba(246, 247, 242, 0.12);
+          --shoppingtajm-scrollbar: rgba(246, 247, 242, 0.28);
+          box-shadow: inset 0 0 0 1px rgba(246, 247, 242, 0.08);
         }
         .card {
           padding: 16px;
@@ -568,7 +574,6 @@ class ShoppingtajmCard extends HTMLElement {
         }
         .header,
         .header-actions,
-        .controls,
         .add-row,
         .item,
         .completed-toggle {
@@ -605,14 +610,6 @@ class ShoppingtajmCard extends HTMLElement {
           max-width: 190px;
           width: min(52vw, 190px);
         }
-        .subtitle {
-          color: var(--shoppingtajm-muted);
-          font-size: 13px;
-          margin-top: 2px;
-        }
-        .controls {
-          margin-bottom: 10px;
-        }
         .list-picker,
         .new-item {
           background: var(--shoppingtajm-input);
@@ -624,14 +621,27 @@ class ShoppingtajmCard extends HTMLElement {
           min-width: 0;
           padding: 0 10px;
         }
+        .list-picker:focus,
+        .new-item:focus,
+        .name-edit:focus,
+        .quantity-edit:focus {
+          background: var(--shoppingtajm-input-focus);
+          border-color: var(--primary-color);
+          outline: none;
+        }
         .list-picker {
-          flex: 1;
+          flex: 0 1 170px;
+        }
+        .list-picker option {
+          background: var(--shoppingtajm-input);
+          color: var(--shoppingtajm-text);
         }
         .add-row {
+          flex-wrap: wrap;
           margin-bottom: 12px;
         }
         .new-item {
-          flex: 1;
+          flex: 1 1 180px;
         }
         button {
           background: none;
@@ -644,7 +654,12 @@ class ShoppingtajmCard extends HTMLElement {
         input:disabled,
         select:disabled {
           cursor: progress;
-          opacity: 0.6;
+          opacity: 0.58;
+        }
+        ha-card.dark button:disabled,
+        ha-card.dark input:disabled,
+        ha-card.dark select:disabled {
+          opacity: 0.48;
         }
         .icon-button,
         .add,
@@ -672,7 +687,7 @@ class ShoppingtajmCard extends HTMLElement {
         .done:hover,
         .read-item:hover,
         .drag-handle:hover {
-          background: var(--shoppingtajm-hover);
+          background: var(--shoppingtajm-button-hover);
         }
         .item {
           border-top: 1px solid var(--shoppingtajm-line);
@@ -710,7 +725,7 @@ class ShoppingtajmCard extends HTMLElement {
           padding: 0 8px;
         }
         .quantity-pill {
-          background: var(--shoppingtajm-hover);
+          background: var(--shoppingtajm-pill);
           border: 1px solid var(--shoppingtajm-line);
           border-radius: 999px;
           color: var(--shoppingtajm-muted);
@@ -748,6 +763,9 @@ class ShoppingtajmCard extends HTMLElement {
         }
         .completed.open {
           display: block;
+        }
+        .items {
+          scrollbar-color: var(--shoppingtajm-scrollbar) transparent;
         }
         .empty {
           border-top: 1px solid var(--shoppingtajm-line);
@@ -913,7 +931,7 @@ class ShoppingtajmCard extends HTMLElement {
       : `<button class="quantity-pill" data-edit-quantity="${item.id}" title="Edit quantity" ${disabled}>${quantity}</button>`;
     const readControl = this._config.sound_enabled
       ? `<button class="read-item" data-read-item="${item.id}" title="Read item" ${disabled || (this._playing ? "disabled" : "")}>
-          <ha-icon icon="mdi:speaker"></ha-icon>
+          <ha-icon icon="mdi:bullhorn"></ha-icon>
         </button>`
       : "";
     return `
@@ -972,7 +990,7 @@ class ShoppingtajmCard extends HTMLElement {
           ${
             this._config.sound_enabled
               ? `<button class="read-item" title="Read item" disabled>
-                  <ha-icon icon="mdi:speaker"></ha-icon>
+                  <ha-icon icon="mdi:bullhorn"></ha-icon>
                 </button>`
               : ""
           }
@@ -994,7 +1012,7 @@ class ShoppingtajmCard extends HTMLElement {
           ${
             this._config.sound_enabled
               ? `<button class="read-item" title="Read item" disabled>
-                  <ha-icon icon="mdi:speaker"></ha-icon>
+                  <ha-icon icon="mdi:bullhorn"></ha-icon>
                 </button>`
               : ""
           }
