@@ -70,6 +70,15 @@ The active list sensor also exposes `lists` and `items` attributes for the custo
 
 ## Dashboard Card
 
+This repository includes a custom Lovelace card in `www/shoppingtajm-card.js` with the Shoppingtajm logo in `www/shoppingtajm-logo.png`.
+
+If you install the integration through HACS, copy both files from this repository's `www/` folder into your Home Assistant `config/www/` folder:
+
+```text
+config/www/shoppingtajm-card.js
+config/www/shoppingtajm-logo.png
+```
+
 Register the card resource:
 
 ```text
@@ -89,8 +98,16 @@ type: custom:shoppingtajm-card
 entity: sensor.shoppingtajm_active_list_name
 ```
 
-The card can switch lists, add items, rename items, edit item quantities, complete items, delete items, read items aloud, and refresh the active list sensor.
-The visual editor supports background color, dark mode, opening completed items by default, logo visibility, and a default list. Active items can be reordered by dragging the handle on each row.
+Home Assistant can also discover the card from the dashboard card picker as **Shoppingtajm Card** after the JavaScript module has loaded.
+
+The card can switch lists, add items with suggestions, rename items, edit item quantities, complete items, delete items, read the whole list aloud, read single rows aloud, and refresh the active list sensor.
+The visual editor supports background color, dark mode, opening the cart by default, logo visibility, sound on/off, stretch fullscreen, and a default list. Active items can be reordered by dragging the handle on each row; the card updates the row order locally first and shows a sync icon while Home Assistant saves the new order.
+
+When updating the card during development, copy the changed `www/shoppingtajm-card.js` file to `config/www/` and reload the browser. If Home Assistant keeps an old cached card, add or change a cache-busting query string on the resource, for example:
+
+```text
+/local/shoppingtajm-card.js?v=20260605
+```
 
 ## Services
 

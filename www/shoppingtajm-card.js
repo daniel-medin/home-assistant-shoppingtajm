@@ -19,6 +19,8 @@ class ShoppingtajmCard extends HTMLElement {
       dark_mode: false,
       show_completed: true,
       show_logo: true,
+      sound_enabled: true,
+      stretch_fullscreen: false,
     };
   }
 
@@ -31,6 +33,8 @@ class ShoppingtajmCard extends HTMLElement {
       dark_mode: false,
       show_completed: true,
       show_logo: true,
+      sound_enabled: true,
+      stretch_fullscreen: false,
       ...config,
     };
     this._busy = false;
@@ -39,7 +43,13 @@ class ShoppingtajmCard extends HTMLElement {
     this._suggestions = [];
     this._suggestionTimer = undefined;
     this._draggedItemId = undefined;
+    this._localActiveOrderIds = undefined;
+    this._pendingReorderIds = undefined;
+    this._reorderRequestId = 0;
+    this._reorderSyncTimer = undefined;
+    this._reorderSyncing = false;
     this._defaultListApplied = false;
+    this._lastListId = undefined;
     this._playing = false;
     this._audio = undefined;
     this._audioResolve = undefined;
@@ -54,6 +64,7 @@ class ShoppingtajmCard extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     this._applyDefaultList();
+    this._reconcileOptimisticOrder();
     const signature = this._stateSignature();
     if (signature !== this._lastSignature) {
       this._lastSignature = signature;
@@ -74,7 +85,12 @@ class ShoppingtajmCard extends HTMLElement {
   }
 
   _items(status) {
-    return (this._attributes().items ?? []).filter((item) => item.status === status);
+    const items = (this._attributes().items ?? []).filter((item) => item.status === status);
+    if (status !== "active" || !this._localActiveOrderIds?.length) {
+      return items;
+    }
+
+    return this._sortItemsByOrder(items, this._localActiveOrderIds);
   }
 
   async _call(service, data) {
@@ -118,11 +134,107 @@ class ShoppingtajmCard extends HTMLElement {
     if (!listId || itemIds.length < 2) {
       return;
     }
-    await this._call("reorder_items", {
-      list_id: listId,
-      status: "active",
-      item_ids: itemIds,
-    });
+
+    const requestId = ++this._reorderRequestId;
+    this._localActiveOrderIds = itemIds;
+    this._pendingReorderIds = itemIds;
+    this._reorderSyncing = true;
+    this._setReorderTimeout(requestId);
+    this._render();
+
+    try {
+      await this._hass.callService("shoppingtajm", "reorder_items", {
+        list_id: listId,
+        status: "active",
+        item_ids: itemIds,
+      });
+    } catch (_err) {
+      if (requestId === this._reorderRequestId) {
+        this._clearOptimisticOrder();
+        this._render();
+      }
+    }
+  }
+
+  _reconcileOptimisticOrder() {
+    const activeListId = Number(this._attributes().list_id) || undefined;
+    if (this._lastListId !== activeListId) {
+      this._lastListId = activeListId;
+      this._clearOptimisticOrder();
+      return;
+    }
+
+    if (!this._pendingReorderIds?.length) {
+      return;
+    }
+
+    const remoteOrderIds = this._remoteActiveOrderIds();
+    if (this._sameOrder(remoteOrderIds, this._pendingReorderIds)) {
+      this._clearOptimisticOrder();
+      return;
+    }
+
+    this._localActiveOrderIds = this._mergeOrder(this._pendingReorderIds, remoteOrderIds);
+  }
+
+  _remoteActiveOrderIds() {
+    return (this._attributes().items ?? [])
+      .filter((item) => item.status === "active")
+      .map((item) => Number(item.id));
+  }
+
+  _sortItemsByOrder(items, orderIds) {
+    const byId = new Map(items.map((item) => [Number(item.id), item]));
+    const sorted = [];
+    for (const itemId of orderIds) {
+      const item = byId.get(Number(itemId));
+      if (item) {
+        sorted.push(item);
+        byId.delete(Number(itemId));
+      }
+    }
+    sorted.push(...byId.values());
+    return sorted;
+  }
+
+  _mergeOrder(preferredOrderIds, availableOrderIds) {
+    const available = new Set(availableOrderIds.map((itemId) => Number(itemId)));
+    const merged = preferredOrderIds
+      .map((itemId) => Number(itemId))
+      .filter((itemId) => available.has(itemId));
+
+    for (const itemId of availableOrderIds) {
+      const numericId = Number(itemId);
+      if (!merged.includes(numericId)) {
+        merged.push(numericId);
+      }
+    }
+
+    return merged;
+  }
+
+  _sameOrder(first, second) {
+    if (first.length !== second.length) {
+      return false;
+    }
+    return first.every((itemId, index) => Number(itemId) === Number(second[index]));
+  }
+
+  _setReorderTimeout(requestId) {
+    window.clearTimeout(this._reorderSyncTimer);
+    this._reorderSyncTimer = window.setTimeout(() => {
+      if (requestId === this._reorderRequestId && this._pendingReorderIds?.length) {
+        this._clearOptimisticOrder();
+        this._render();
+      }
+    }, 12000);
+  }
+
+  _clearOptimisticOrder() {
+    window.clearTimeout(this._reorderSyncTimer);
+    this._localActiveOrderIds = undefined;
+    this._pendingReorderIds = undefined;
+    this._reorderSyncing = false;
   }
 
   _startNameEdit(item) {
@@ -183,7 +295,7 @@ class ShoppingtajmCard extends HTMLElement {
   async _readList() {
     const listId = Number(this._attributes().list_id);
     const items = this._items("active");
-    if (!this._hass || !listId || !items.length || this._playing) {
+    if (!this._config.sound_enabled || !this._hass || !listId || !items.length || this._playing) {
       return;
     }
 
@@ -196,6 +308,22 @@ class ShoppingtajmCard extends HTMLElement {
         }
         await this._playItemAudio(listId, Number(item.id));
       }
+    } finally {
+      this._playing = false;
+      this._render();
+    }
+  }
+
+  async _readItem(itemId) {
+    const listId = Number(this._attributes().list_id);
+    if (!this._config.sound_enabled || !this._hass || !listId || !itemId || this._playing) {
+      return;
+    }
+
+    this._playing = true;
+    this._render();
+    try {
+      await this._playItemAudio(listId, itemId);
     } finally {
       this._playing = false;
       this._render();
@@ -254,6 +382,10 @@ class ShoppingtajmCard extends HTMLElement {
         dark_mode: this._config.dark_mode,
         show_completed: this._config.show_completed,
         show_logo: this._config.show_logo,
+        sound_enabled: this._config.sound_enabled,
+        stretch_fullscreen: this._config.stretch_fullscreen,
+        localActiveOrderIds: this._localActiveOrderIds ?? [],
+        reorderSyncing: this._reorderSyncing,
         playing: this._playing,
       },
     });
@@ -310,11 +442,13 @@ class ShoppingtajmCard extends HTMLElement {
     const activeListId = Number(attrs.list_id);
     const disabled = this._busy ? "disabled" : "";
     const playDisabled = this._busy || !active.length ? "disabled" : "";
+    const soundEnabled = this._config.sound_enabled;
     const dark = this._config.dark_mode ? "dark" : "";
+    const stretch = this._config.stretch_fullscreen ? "stretch" : "";
     const background = this._escapeCssColor(this._config.background_color || DEFAULT_BACKGROUND);
 
     this.shadowRoot.innerHTML = `
-      <ha-card class="${dark}" style="--shoppingtajm-card-bg: ${background}">
+      <ha-card class="${dark} ${stretch}" style="--shoppingtajm-card-bg: ${background}">
         <div class="card">
           <div class="header">
             <div class="brand">
@@ -324,15 +458,28 @@ class ShoppingtajmCard extends HTMLElement {
                     ? `<img class="logo" src="/local/shoppingtajm-logo.png?v=20260605-logo" alt="Shoppingtajm">`
                     : `<div class="title">Shoppingtajm</div>`
                 }
-                <button class="icon-button read-list" title="${this._playing ? "Stop reading" : "Read list"}" ${playDisabled}>
-                  <ha-icon icon="${this._playing ? "mdi:stop" : "mdi:speaker"}"></ha-icon>
-                </button>
               </div>
               <div class="subtitle">${this._escape(state?.state ?? "Shopping list")}</div>
             </div>
-            <button class="icon-button refresh" title="Refresh" ${disabled}>
-              <ha-icon icon="mdi:refresh"></ha-icon>
-            </button>
+            <div class="header-actions">
+              ${
+                this._reorderSyncing
+                  ? `<span class="sync-status" title="Syncing order">
+                      <ha-icon icon="mdi:sync"></ha-icon>
+                    </span>`
+                  : ""
+              }
+              ${
+                soundEnabled
+                  ? `<button class="icon-button read-list" title="${this._playing ? "Stop reading" : "Read list"}" ${playDisabled}>
+                      <ha-icon icon="${this._playing ? "mdi:stop" : "mdi:speaker"}"></ha-icon>
+                    </button>`
+                  : ""
+              }
+              <button class="icon-button refresh" title="Refresh" ${disabled}>
+                <ha-icon icon="mdi:refresh"></ha-icon>
+              </button>
+            </div>
           </div>
 
           <div class="controls">
@@ -347,10 +494,6 @@ class ShoppingtajmCard extends HTMLElement {
                 )
                 .join("")}
             </select>
-            <div class="counts">
-              <span>${active.length} kvar</span>
-              <span>${completed.length} klara</span>
-            </div>
           </div>
 
           <div class="add-row">
@@ -371,7 +514,7 @@ class ShoppingtajmCard extends HTMLElement {
 
           <button class="completed-toggle" ${disabled}>
             <ha-icon icon="${this._expandedCompleted ? "mdi:chevron-up" : "mdi:chevron-down"}"></ha-icon>
-            Klara varor
+            Kundvagn
           </button>
 
           <div class="items completed ${this._expandedCompleted ? "open" : ""}">
@@ -384,6 +527,7 @@ class ShoppingtajmCard extends HTMLElement {
           display: block;
         }
         ha-card {
+          --shoppingtajm-fullscreen-height: calc(100dvh - 96px);
           --shoppingtajm-text: #302c26;
           --shoppingtajm-muted: #766f64;
           --shoppingtajm-line: rgba(48, 44, 38, 0.14);
@@ -402,7 +546,28 @@ class ShoppingtajmCard extends HTMLElement {
         .card {
           padding: 16px;
         }
+        ha-card.stretch {
+          height: max(480px, var(--shoppingtajm-fullscreen-height));
+        }
+        ha-card.stretch .card {
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          min-height: 0;
+        }
+        ha-card.stretch .active-items {
+          flex: 1 1 auto;
+          min-height: 0;
+          overflow-y: auto;
+        }
+        ha-card.stretch .completed.open {
+          flex: 0 1 38%;
+          min-height: 0;
+          overflow-y: auto;
+        }
         .header,
+        .header-actions,
         .controls,
         .add-row,
         .item,
@@ -414,6 +579,9 @@ class ShoppingtajmCard extends HTMLElement {
         .header {
           justify-content: space-between;
           margin-bottom: 14px;
+        }
+        .header-actions {
+          flex-shrink: 0;
         }
         .brand {
           min-width: 0;
@@ -443,7 +611,6 @@ class ShoppingtajmCard extends HTMLElement {
           margin-top: 2px;
         }
         .controls {
-          justify-content: space-between;
           margin-bottom: 10px;
         }
         .list-picker,
@@ -459,13 +626,6 @@ class ShoppingtajmCard extends HTMLElement {
         }
         .list-picker {
           flex: 1;
-        }
-        .counts {
-          color: var(--shoppingtajm-muted);
-          display: flex;
-          flex-shrink: 0;
-          font-size: 12px;
-          gap: 8px;
         }
         .add-row {
           margin-bottom: 12px;
@@ -490,7 +650,9 @@ class ShoppingtajmCard extends HTMLElement {
         .add,
         .delete,
         .done,
-        .drag-handle {
+        .read-item,
+        .drag-handle,
+        .sync-status {
           align-items: center;
           border-radius: 50%;
           display: inline-flex;
@@ -498,10 +660,17 @@ class ShoppingtajmCard extends HTMLElement {
           justify-content: center;
           width: 34px;
         }
+        .sync-status {
+          color: var(--primary-color);
+        }
+        .sync-status ha-icon {
+          animation: shoppingtajm-spin 1s linear infinite;
+        }
         .icon-button:hover,
         .add:hover,
         .delete:hover,
         .done:hover,
+        .read-item:hover,
         .drag-handle:hover {
           background: var(--shoppingtajm-hover);
         }
@@ -586,6 +755,14 @@ class ShoppingtajmCard extends HTMLElement {
           padding: 14px 0;
           text-align: center;
         }
+        @keyframes shoppingtajm-spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
       </style>
     `;
 
@@ -630,6 +807,11 @@ class ShoppingtajmCard extends HTMLElement {
     this.shadowRoot.querySelectorAll("[data-delete]").forEach((button) => {
       button.addEventListener("click", () => {
         this._call("delete_item", { item_id: Number(button.dataset.delete) });
+      });
+    });
+    this.shadowRoot.querySelectorAll("[data-read-item]").forEach((button) => {
+      button.addEventListener("click", () => {
+        this._readItem(Number(button.dataset.readItem));
       });
     });
     this.shadowRoot.querySelectorAll("[data-edit-name]").forEach((name) => {
@@ -729,6 +911,11 @@ class ShoppingtajmCard extends HTMLElement {
     const quantityControl = editingQuantity
       ? `<input class="quantity-edit" data-item-id="${item.id}" type="number" min="1" max="1000" value="${quantity}" ${disabled}>`
       : `<button class="quantity-pill" data-edit-quantity="${item.id}" title="Edit quantity" ${disabled}>${quantity}</button>`;
+    const readControl = this._config.sound_enabled
+      ? `<button class="read-item" data-read-item="${item.id}" title="Read item" ${disabled || (this._playing ? "disabled" : "")}>
+          <ha-icon icon="mdi:speaker"></ha-icon>
+        </button>`
+      : "";
     return `
       <div class="item" data-item-id="${item.id}" ${draggable}>
         ${
@@ -741,6 +928,7 @@ class ShoppingtajmCard extends HTMLElement {
         ${name}
         <div class="actions">
           ${quantityControl}
+          ${readControl}
           ${
             completed
               ? ""
@@ -781,6 +969,13 @@ class ShoppingtajmCard extends HTMLElement {
         <div class="name">Mjolk</div>
         <div class="actions">
           <span class="quantity-pill">2</span>
+          ${
+            this._config.sound_enabled
+              ? `<button class="read-item" title="Read item" disabled>
+                  <ha-icon icon="mdi:speaker"></ha-icon>
+                </button>`
+              : ""
+          }
           <button class="done" title="Mark as done" disabled>
             <ha-icon icon="mdi:check"></ha-icon>
           </button>
@@ -796,6 +991,13 @@ class ShoppingtajmCard extends HTMLElement {
           <div class="name">Kaffe</div>
           <div class="actions">
           <span class="quantity-pill">1</span>
+          ${
+            this._config.sound_enabled
+              ? `<button class="read-item" title="Read item" disabled>
+                  <ha-icon icon="mdi:speaker"></ha-icon>
+                </button>`
+              : ""
+          }
           <button class="done" title="Mark as done" disabled>
             <ha-icon icon="mdi:check"></ha-icon>
           </button>
@@ -829,6 +1031,8 @@ class ShoppingtajmCardEditor extends HTMLElement {
       dark_mode: false,
       show_completed: true,
       show_logo: true,
+      sound_enabled: true,
+      stretch_fullscreen: false,
       ...config,
     };
     if (!this.shadowRoot) {
@@ -904,6 +1108,14 @@ class ShoppingtajmCardEditor extends HTMLElement {
           <span>Show logo</span>
           <input class="show-logo" type="checkbox" ${this._config.show_logo ? "checked" : ""}>
         </label>
+        <label class="toggle">
+          <span>Ljud av / p&aring;</span>
+          <input class="sound-enabled" type="checkbox" ${this._config.sound_enabled ? "checked" : ""}>
+        </label>
+        <label class="toggle">
+          <span>Stretch fullscreen</span>
+          <input class="stretch-fullscreen" type="checkbox" ${this._config.stretch_fullscreen ? "checked" : ""}>
+        </label>
       </div>
       <style>
         .editor {
@@ -958,6 +1170,12 @@ class ShoppingtajmCardEditor extends HTMLElement {
     });
     this.shadowRoot.querySelector(".show-logo")?.addEventListener("change", (event) => {
       this._updateConfig({ show_logo: event.target.checked });
+    });
+    this.shadowRoot.querySelector(".sound-enabled")?.addEventListener("change", (event) => {
+      this._updateConfig({ sound_enabled: event.target.checked });
+    });
+    this.shadowRoot.querySelector(".stretch-fullscreen")?.addEventListener("change", (event) => {
+      this._updateConfig({ stretch_fullscreen: event.target.checked });
     });
   }
 
