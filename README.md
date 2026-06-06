@@ -1,9 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="custom_components/shoppingtajm/brand/logo_inverted.png">
-    <source media="(prefers-color-scheme: light)" srcset="custom_components/shoppingtajm/brand/logo.png">
-    <img src="custom_components/shoppingtajm/brand/logo.png" alt="Shoppingtajm" width="640">
-  </picture>
+  <img src="custom_components/shoppingtajm/brand/logo.png" alt="Shoppingtajm" width="640">
 </p>
 
 # Shoppingtajm for Home Assistant
