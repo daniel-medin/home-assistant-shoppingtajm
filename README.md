@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/daniel-medin/home-assistant-shoppingtajm/main/custom_components/shoppingtajm/brand/icon.png" alt="Shoppingtajm app icon" width="260">
+  <img src="https://raw.githubusercontent.com/daniel-medin/home-assistant-shoppingtajm/main/custom_components/shoppingtajm/brand/logo_inverted.png" alt="Shoppingtajm logo" width="720">
 </p>
 
 Custom Home Assistant integration for [Shoppingtajm](https://shoppingtajm.se), a Swedish shopping list app.
