@@ -1,8 +1,19 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/daniel-medin/home-assistant-shoppingtajm/main/custom_components/shoppingtajm/brand/logo.png" alt="Shoppingtajm" width="640">
-</p>
+<h1 align="center">Shoppingtajm for Home Assistant</h1>
 
-# Shoppingtajm for Home Assistant
+<p align="center">
+  <a href="https://github.com/daniel-medin/home-assistant-shoppingtajm/releases">
+    <img src="https://img.shields.io/github/v/release/daniel-medin/home-assistant-shoppingtajm?style=for-the-badge" alt="Release">
+  </a>
+  <a href="https://github.com/daniel-medin/home-assistant-shoppingtajm/actions/workflows/hacs.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/daniel-medin/home-assistant-shoppingtajm/hacs.yml?branch=main&label=HACS&style=for-the-badge" alt="HACS Validation">
+  </a>
+  <a href="https://github.com/daniel-medin/home-assistant-shoppingtajm/actions/workflows/hassfest.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/daniel-medin/home-assistant-shoppingtajm/hassfest.yml?branch=main&label=hassfest&style=for-the-badge" alt="Home Assistant Validation">
+  </a>
+  <a href="https://github.com/hacs/integration">
+    <img src="https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge" alt="HACS Custom">
+  </a>
+</p>
 
 Custom Home Assistant integration for [Shoppingtajm](https://shoppingtajm.se), a Swedish shopping list app.
 
