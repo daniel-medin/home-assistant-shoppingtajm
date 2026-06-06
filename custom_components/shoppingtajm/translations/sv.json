@@ -1,0 +1,188 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Anslut Shoppingtajm",
+        "description": "Ange server-URL och Personal Access Token för Shoppingtajm.",
+        "data": {
+          "server_url": "Server-URL",
+          "personal_access_token": "Personal Access Token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kunde inte ansluta till Shoppingtajm.",
+      "invalid_auth": "Personal Access Token är ogiltig.",
+      "unknown": "Oväntat fel vid anslutning till Shoppingtajm."
+    },
+    "abort": {
+      "already_configured": "Det här Shoppingtajm-kontot är redan konfigurerat."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_lists": {
+        "name": "Totalt antal listor"
+      },
+      "active_list_name": {
+        "name": "Aktiv lista"
+      },
+      "remaining_items": {
+        "name": "Kvarvarande varor"
+      },
+      "completed_items": {
+        "name": "Varor i kundvagnen"
+      },
+      "last_updated": {
+        "name": "Senast uppdaterad"
+      }
+    },
+    "button": {
+      "refresh_shopping_data": {
+        "name": "Uppdatera inköpsdata"
+      }
+    }
+  },
+  "services": {
+    "add_item": {
+      "name": "Lägg till vara",
+      "description": "Lägg till en vara i en Shoppingtajm-lista.",
+      "fields": {
+        "list_id": {
+          "name": "List-ID",
+          "description": "Numeriskt list-ID i Shoppingtajm."
+        },
+        "item_name": {
+          "name": "Varunamn",
+          "description": "Namnet på varan som ska läggas till."
+        },
+        "entry_id": {
+          "name": "Entry-ID",
+          "description": "Valfritt config entry-ID för Shoppingtajm när flera konton är konfigurerade."
+        }
+      }
+    },
+    "complete_item": {
+      "name": "Markera vara som klar",
+      "description": "Flytta en Shoppingtajm-vara till klar/kundvagn.",
+      "fields": {
+        "item_id": {
+          "name": "Varu-ID",
+          "description": "Numeriskt varu-ID i Shoppingtajm."
+        },
+        "entry_id": {
+          "name": "Entry-ID",
+          "description": "Valfritt config entry-ID för Shoppingtajm när flera konton är konfigurerade."
+        }
+      }
+    },
+    "update_item": {
+      "name": "Uppdatera vara",
+      "description": "Byt namn på en Shoppingtajm-vara.",
+      "fields": {
+        "list_id": {
+          "name": "List-ID",
+          "description": "Numeriskt list-ID i Shoppingtajm."
+        },
+        "item_id": {
+          "name": "Varu-ID",
+          "description": "Numeriskt varu-ID i Shoppingtajm."
+        },
+        "item_name": {
+          "name": "Varunamn",
+          "description": "Nytt namn på varan."
+        },
+        "entry_id": {
+          "name": "Entry-ID",
+          "description": "Valfritt config entry-ID för Shoppingtajm när flera konton är konfigurerade."
+        }
+      }
+    },
+    "set_item_quantity": {
+      "name": "Ange antal",
+      "description": "Ange synligt antal för en Shoppingtajm-vara.",
+      "fields": {
+        "list_id": {
+          "name": "List-ID",
+          "description": "Numeriskt list-ID i Shoppingtajm."
+        },
+        "item_id": {
+          "name": "Varu-ID",
+          "description": "Numeriskt varu-ID i Shoppingtajm."
+        },
+        "quantity": {
+          "name": "Antal",
+          "description": "Synligt antal för varan."
+        },
+        "entry_id": {
+          "name": "Entry-ID",
+          "description": "Valfritt config entry-ID för Shoppingtajm när flera konton är konfigurerade."
+        }
+      }
+    },
+    "delete_item": {
+      "name": "Ta bort vara",
+      "description": "Ta bort en Shoppingtajm-vara.",
+      "fields": {
+        "item_id": {
+          "name": "Varu-ID",
+          "description": "Numeriskt varu-ID i Shoppingtajm."
+        },
+        "entry_id": {
+          "name": "Entry-ID",
+          "description": "Valfritt config entry-ID för Shoppingtajm när flera konton är konfigurerade."
+        }
+      }
+    },
+    "create_list": {
+      "name": "Skapa lista",
+      "description": "Skapa och aktivera en Shoppingtajm-lista.",
+      "fields": {
+        "name": {
+          "name": "Namn",
+          "description": "Namnet på den nya listan."
+        },
+        "entry_id": {
+          "name": "Entry-ID",
+          "description": "Valfritt config entry-ID för Shoppingtajm när flera konton är konfigurerade."
+        }
+      }
+    },
+    "activate_list": {
+      "name": "Aktivera lista",
+      "description": "Byt aktiv Shoppingtajm-lista.",
+      "fields": {
+        "list_id": {
+          "name": "List-ID",
+          "description": "Numeriskt list-ID i Shoppingtajm."
+        },
+        "entry_id": {
+          "name": "Entry-ID",
+          "description": "Valfritt config entry-ID för Shoppingtajm när flera konton är konfigurerade."
+        }
+      }
+    },
+    "reorder_items": {
+      "name": "Ändra ordning på varor",
+      "description": "Spara sorteringsordningen för Shoppingtajm-varor.",
+      "fields": {
+        "list_id": {
+          "name": "List-ID",
+          "description": "Numeriskt list-ID i Shoppingtajm."
+        },
+        "status": {
+          "name": "Status",
+          "description": "Shoppingtajm-varustatus att ändra ordning för."
+        },
+        "item_ids": {
+          "name": "Varu-ID:n",
+          "description": "Ordnad lista med numeriska Shoppingtajm-varu-ID:n."
+        },
+        "entry_id": {
+          "name": "Entry-ID",
+          "description": "Valfritt config entry-ID för Shoppingtajm när flera konton är konfigurerade."
+        }
+      }
+    }
+  }
+}

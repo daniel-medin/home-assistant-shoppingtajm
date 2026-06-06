@@ -2,6 +2,107 @@ const DEFAULT_BACKGROUND = "#f7f6f1";
 const LOGO_LIGHT_SRC = "/local/shoppingtajm-logo.png?v=20260606-logo";
 const LOGO_DARK_SRC = "/local/shoppingtajm-logo-inverted.png?v=20260606-logo-inverted";
 const THEME_MODES = ["auto", "light", "dark"];
+const LANGUAGE_MODES = ["auto", "sv", "en"];
+const DEFAULT_LANGUAGE = "en";
+const CARD_TRANSLATIONS = {
+  en: {
+    addItem: "Add item",
+    background: "Background",
+    cart: "Cart",
+    chooseList: "Choose list",
+    currentActiveList: "Current active list",
+    defaultList: "Default list",
+    deleteItem: "Delete item",
+    done: "Done",
+    doubleClickToEdit: "Double-click to edit",
+    dragToReorder: "Drag to reorder",
+    emptyActiveItems: "No active items.",
+    entity: "Entity",
+    language: "Language",
+    languageAuto: "Automatic",
+    languageEnglish: "English",
+    languageSwedish: "Swedish",
+    markAsDone: "Mark as done",
+    milk: "Milk",
+    readItem: "Read item",
+    readList: "Read list",
+    refresh: "Refresh",
+    requiresEntity: "Shoppingtajm card requires an entity",
+    showCompletedOpen: "Show completed open",
+    showLogo: "Show logo",
+    soundEnabled: "Sound",
+    stopReading: "Stop reading",
+    stretchFullscreen: "Stretch fullscreen",
+    syncOrder: "Syncing order",
+    theme: "Theme",
+    themeAuto: "Automatic",
+    themeDark: "Dark",
+    themeLight: "Light",
+    editQuantity: "Edit quantity",
+  },
+  sv: {
+    addItem: "Lägg till vara",
+    background: "Bakgrund",
+    cart: "Kundvagn",
+    chooseList: "Välj lista",
+    currentActiveList: "Nuvarande aktiv lista",
+    defaultList: "Standardlista",
+    deleteItem: "Ta bort vara",
+    done: "Klar",
+    doubleClickToEdit: "Dubbelklicka för att redigera",
+    dragToReorder: "Dra för att ändra ordning",
+    emptyActiveItems: "Inga aktiva varor.",
+    entity: "Entitet",
+    language: "Språk",
+    languageAuto: "Automatiskt",
+    languageEnglish: "English",
+    languageSwedish: "Svenska",
+    markAsDone: "Markera som klar",
+    milk: "Mjölk",
+    readItem: "Läs vara",
+    readList: "Läs listan",
+    refresh: "Uppdatera",
+    requiresEntity: "Shoppingtajm-kortet kräver en entitet",
+    showCompletedOpen: "Visa kundvagnen öppen",
+    showLogo: "Visa logotyp",
+    soundEnabled: "Ljud",
+    stopReading: "Stoppa uppläsning",
+    stretchFullscreen: "Fyll skärmen",
+    syncOrder: "Synkar ordning",
+    theme: "Tema",
+    themeAuto: "Automatiskt",
+    themeDark: "Mörkt",
+    themeLight: "Ljust",
+    editQuantity: "Redigera antal",
+  },
+};
+
+function normalizeLanguageMode(languageMode) {
+  return LANGUAGE_MODES.includes(languageMode) ? languageMode : "auto";
+}
+
+function languageFromHass(hass, preferredLanguage) {
+  const languageMode = normalizeLanguageMode(preferredLanguage);
+  if (languageMode !== "auto") {
+    return languageMode;
+  }
+  const hassLanguage = String(hass?.locale?.language ?? hass?.language ?? "").toLowerCase();
+  if (hassLanguage.startsWith("sv")) {
+    return "sv";
+  }
+  if (hassLanguage.startsWith("en")) {
+    return "en";
+  }
+  const timeZone = String(hass?.config?.time_zone ?? "").toLowerCase();
+  if (timeZone === "europe/stockholm") {
+    return "sv";
+  }
+  return DEFAULT_LANGUAGE;
+}
+
+function localize(language, key) {
+  return CARD_TRANSLATIONS[language]?.[key] ?? CARD_TRANSLATIONS[DEFAULT_LANGUAGE][key] ?? key;
+}
 
 class ShoppingtajmCard extends HTMLElement {
   static getConfigElement() {
@@ -19,6 +120,7 @@ class ShoppingtajmCard extends HTMLElement {
     return {
       entity,
       background_color: DEFAULT_BACKGROUND,
+      preferred_language: "auto",
       theme_mode: "auto",
       show_completed: true,
       show_logo: true,
@@ -29,15 +131,17 @@ class ShoppingtajmCard extends HTMLElement {
 
   setConfig(config) {
     if (!config.entity) {
-      throw new Error("Shoppingtajm card requires an entity");
+      throw new Error(localize(DEFAULT_LANGUAGE, "requiresEntity"));
     }
     const normalizedConfig = {
       ...config,
+      preferred_language: normalizeLanguageMode(config.preferred_language),
       theme_mode: this._normalizeThemeMode(config.theme_mode, config.dark_mode),
     };
     delete normalizedConfig.dark_mode;
     this._config = {
       background_color: DEFAULT_BACKGROUND,
+      preferred_language: "auto",
       theme_mode: "auto",
       show_completed: true,
       show_logo: true,
@@ -387,6 +491,8 @@ class ShoppingtajmCard extends HTMLElement {
       items: attrs.items ?? [],
       config: {
         background_color: this._config.background_color,
+        preferred_language: this._config.preferred_language,
+        language: this._language(),
         theme_mode: this._config.theme_mode,
         dark_mode: this._isDarkMode(),
         show_completed: this._config.show_completed,
@@ -459,6 +565,14 @@ class ShoppingtajmCard extends HTMLElement {
     return Boolean(this._hass?.selectedTheme?.dark);
   }
 
+  _language() {
+    return languageFromHass(this._hass, this._config.preferred_language);
+  }
+
+  _t(key) {
+    return localize(this._language(), key);
+  }
+
   _render() {
     if (!this.shadowRoot || !this._hass) {
       return;
@@ -477,6 +591,7 @@ class ShoppingtajmCard extends HTMLElement {
     const stretch = this._config.stretch_fullscreen ? "stretch" : "";
     const background = this._escapeCssColor(this._config.background_color || DEFAULT_BACKGROUND);
     const logoSrc = darkMode ? LOGO_DARK_SRC : LOGO_LIGHT_SRC;
+    const t = (key) => this._t(key);
 
     this.shadowRoot.innerHTML = `
       <ha-card class="${dark} ${stretch}" style="--shoppingtajm-card-bg: ${background}">
@@ -494,32 +609,32 @@ class ShoppingtajmCard extends HTMLElement {
             <div class="header-actions">
               ${
                 this._reorderSyncing
-                  ? `<span class="sync-status" title="Syncing order">
+                  ? `<span class="sync-status" title="${this._escape(t("syncOrder"))}">
                       <ha-icon icon="mdi:sync"></ha-icon>
                     </span>`
                   : ""
               }
               ${
                 soundEnabled
-                  ? `<button class="icon-button read-list" title="${this._playing ? "Stop reading" : "Read list"}" ${playDisabled}>
+                  ? `<button class="icon-button read-list" title="${this._escape(this._playing ? t("stopReading") : t("readList"))}" ${playDisabled}>
                       <ha-icon icon="${this._playing ? "mdi:stop" : "mdi:bullhorn"}"></ha-icon>
                     </button>`
                   : ""
               }
-              <button class="icon-button refresh" title="Refresh" ${disabled}>
+              <button class="icon-button refresh" title="${this._escape(t("refresh"))}" ${disabled}>
                 <ha-icon icon="mdi:refresh"></ha-icon>
               </button>
             </div>
           </div>
 
           <div class="add-row">
-            <input class="new-item" type="text" placeholder="Lagg till vara" list="shoppingtajm-suggestions" autocomplete="off" ${disabled}>
+            <input class="new-item" type="text" placeholder="${this._escape(t("addItem"))}" list="shoppingtajm-suggestions" autocomplete="off" ${disabled}>
             <datalist id="shoppingtajm-suggestions">
               ${this._suggestions
                 .map((item) => `<option value="${this._escape(item.name ?? item.Name ?? "")}"></option>`)
                 .join("")}
             </datalist>
-            <select class="list-picker" title="Choose list" ${disabled}>
+            <select class="list-picker" title="${this._escape(t("chooseList"))}" ${disabled}>
               ${lists
                 .map(
                   (list) => `
@@ -530,7 +645,7 @@ class ShoppingtajmCard extends HTMLElement {
                 )
                 .join("")}
             </select>
-            <button class="add" title="Add item" ${disabled}>
+            <button class="add" title="${this._escape(t("addItem"))}" ${disabled}>
               <ha-icon icon="mdi:plus"></ha-icon>
             </button>
           </div>
@@ -541,7 +656,7 @@ class ShoppingtajmCard extends HTMLElement {
 
           <button class="completed-toggle" ${disabled}>
             <ha-icon icon="${this._expandedCompleted ? "mdi:chevron-up" : "mdi:chevron-down"}"></ha-icon>
-            Kundvagn
+            ${this._escape(t("cart"))}
           </button>
 
           <div class="items completed ${this._expandedCompleted ? "open" : ""}">
@@ -955,14 +1070,15 @@ class ShoppingtajmCard extends HTMLElement {
     const editingName = this._editingNameItemId === itemId;
     const editingQuantity = this._editingQuantityItemId === itemId;
     const draggable = completed || editingName || editingQuantity ? "" : "draggable=\"true\"";
+    const t = (key) => this._t(key);
     const name = editingName
       ? `<input class="name-edit" data-item-id="${item.id}" value="${this._escape(item.name)}" ${disabled}>`
-      : `<div class="name" data-edit-name="${item.id}" title="Double-click to edit">${this._escape(item.name)}</div>`;
+      : `<div class="name" data-edit-name="${item.id}" title="${this._escape(t("doubleClickToEdit"))}">${this._escape(item.name)}</div>`;
     const quantityControl = editingQuantity
       ? `<input class="quantity-edit" data-item-id="${item.id}" type="number" min="1" max="1000" value="${quantity}" ${disabled}>`
-      : `<button class="quantity-pill" data-edit-quantity="${item.id}" title="Edit quantity" ${disabled}>${quantity}</button>`;
+      : `<button class="quantity-pill" data-edit-quantity="${item.id}" title="${this._escape(t("editQuantity"))}" ${disabled}>${quantity}</button>`;
     const readControl = this._config.sound_enabled
-      ? `<button class="read-item" data-read-item="${item.id}" title="Read item" ${disabled || (this._playing ? "disabled" : "")}>
+      ? `<button class="read-item" data-read-item="${item.id}" title="${this._escape(t("readItem"))}" ${disabled || (this._playing ? "disabled" : "")}>
           <ha-icon icon="mdi:bullhorn"></ha-icon>
         </button>`
       : "";
@@ -970,8 +1086,8 @@ class ShoppingtajmCard extends HTMLElement {
       <div class="item" data-item-id="${item.id}" ${draggable}>
         ${
           completed
-            ? `<span class="drag-handle" title="Done"><ha-icon icon="mdi:check"></ha-icon></span>`
-            : `<button class="drag-handle" title="Drag to reorder" ${disabled}>
+            ? `<span class="drag-handle" title="${this._escape(t("done"))}"><ha-icon icon="mdi:check"></ha-icon></span>`
+            : `<button class="drag-handle" title="${this._escape(t("dragToReorder"))}" ${disabled}>
                 <ha-icon icon="mdi:drag"></ha-icon>
               </button>`
         }
@@ -982,11 +1098,11 @@ class ShoppingtajmCard extends HTMLElement {
           ${
             completed
               ? ""
-              : `<button class="done" data-complete="${item.id}" title="Mark as done" ${disabled}>
+              : `<button class="done" data-complete="${item.id}" title="${this._escape(t("markAsDone"))}" ${disabled}>
                   <ha-icon icon="mdi:check"></ha-icon>
                 </button>`
           }
-          <button class="delete" data-delete="${item.id}" title="Delete item" ${disabled}>
+          <button class="delete" data-delete="${item.id}" title="${this._escape(t("deleteItem"))}" ${disabled}>
             <ha-icon icon="mdi:delete-outline"></ha-icon>
           </button>
         </div>
@@ -1008,34 +1124,35 @@ class ShoppingtajmCard extends HTMLElement {
   }
 
   _previewOrEmpty() {
+    const t = (key) => this._t(key);
     if (this._state()) {
-      return `<div class="empty">Inga aktiva varor.</div>`;
+      return `<div class="empty">${this._escape(t("emptyActiveItems"))}</div>`;
     }
     return `
       <div class="item">
-        <button class="drag-handle" title="Drag to reorder" disabled>
+        <button class="drag-handle" title="${this._escape(t("dragToReorder"))}" disabled>
           <ha-icon icon="mdi:drag"></ha-icon>
         </button>
-        <div class="name">Mjolk</div>
+        <div class="name">${this._escape(t("milk"))}</div>
         <div class="actions">
           <span class="quantity-pill">2</span>
           ${
             this._config.sound_enabled
-              ? `<button class="read-item" title="Read item" disabled>
+              ? `<button class="read-item" title="${this._escape(t("readItem"))}" disabled>
                   <ha-icon icon="mdi:bullhorn"></ha-icon>
                 </button>`
               : ""
           }
-          <button class="done" title="Mark as done" disabled>
+          <button class="done" title="${this._escape(t("markAsDone"))}" disabled>
             <ha-icon icon="mdi:check"></ha-icon>
           </button>
-          <button class="delete" title="Delete item" disabled>
+          <button class="delete" title="${this._escape(t("deleteItem"))}" disabled>
             <ha-icon icon="mdi:delete-outline"></ha-icon>
           </button>
         </div>
       </div>
       <div class="item">
-        <button class="drag-handle" title="Drag to reorder" disabled>
+        <button class="drag-handle" title="${this._escape(t("dragToReorder"))}" disabled>
           <ha-icon icon="mdi:drag"></ha-icon>
         </button>
           <div class="name">Kaffe</div>
@@ -1043,15 +1160,15 @@ class ShoppingtajmCard extends HTMLElement {
           <span class="quantity-pill">1</span>
           ${
             this._config.sound_enabled
-              ? `<button class="read-item" title="Read item" disabled>
+              ? `<button class="read-item" title="${this._escape(t("readItem"))}" disabled>
                   <ha-icon icon="mdi:bullhorn"></ha-icon>
                 </button>`
               : ""
           }
-          <button class="done" title="Mark as done" disabled>
+          <button class="done" title="${this._escape(t("markAsDone"))}" disabled>
             <ha-icon icon="mdi:check"></ha-icon>
           </button>
-          <button class="delete" title="Delete item" disabled>
+          <button class="delete" title="${this._escape(t("deleteItem"))}" disabled>
             <ha-icon icon="mdi:delete-outline"></ha-icon>
           </button>
         </div>
@@ -1078,11 +1195,13 @@ class ShoppingtajmCardEditor extends HTMLElement {
   setConfig(config) {
     const normalizedConfig = {
       ...config,
+      preferred_language: normalizeLanguageMode(config.preferred_language),
       theme_mode: this._normalizeThemeMode(config.theme_mode, config.dark_mode),
     };
     delete normalizedConfig.dark_mode;
     this._config = {
       background_color: DEFAULT_BACKGROUND,
+      preferred_language: "auto",
       theme_mode: "auto",
       show_completed: true,
       show_logo: true,
@@ -1128,22 +1247,32 @@ class ShoppingtajmCardEditor extends HTMLElement {
     return darkMode === true ? "dark" : "auto";
   }
 
+  _language() {
+    return languageFromHass(this._hass, this._config.preferred_language);
+  }
+
+  _t(key) {
+    return localize(this._language(), key);
+  }
+
   _render() {
     if (!this.shadowRoot || !this._config) {
       return;
     }
     const lists = this._lists();
     const themeMode = this._normalizeThemeMode(this._config.theme_mode, this._config.dark_mode);
+    const languageMode = normalizeLanguageMode(this._config.preferred_language);
+    const t = (key) => this._t(key);
     this.shadowRoot.innerHTML = `
       <div class="editor">
         <label>
-          <span>Entity</span>
+          <span>${this._escape(t("entity"))}</span>
           <input class="entity" value="${this._escape(this._config.entity ?? "")}">
         </label>
         <label>
-          <span>Default list</span>
+          <span>${this._escape(t("defaultList"))}</span>
           <select class="default-list">
-            <option value="">Current active list</option>
+            <option value="">${this._escape(t("currentActiveList"))}</option>
             ${lists
               .map(
                 (list) => `
@@ -1156,38 +1285,46 @@ class ShoppingtajmCardEditor extends HTMLElement {
           </select>
         </label>
         <label>
-          <span>Background</span>
+          <span>${this._escape(t("background"))}</span>
           <input class="background" type="color" value="${this._escape(this._config.background_color ?? DEFAULT_BACKGROUND)}">
         </label>
+        <label>
+          <span>${this._escape(t("language"))}</span>
+          <select class="preferred-language">
+            <option value="auto" ${languageMode === "auto" ? "selected" : ""}>${this._escape(t("languageAuto"))}</option>
+            <option value="sv" ${languageMode === "sv" ? "selected" : ""}>${this._escape(t("languageSwedish"))}</option>
+            <option value="en" ${languageMode === "en" ? "selected" : ""}>${this._escape(t("languageEnglish"))}</option>
+          </select>
+        </label>
         <fieldset class="theme-options">
-          <legend>Tema</legend>
+          <legend>${this._escape(t("theme"))}</legend>
           <label class="radio">
             <input class="theme-mode" type="radio" name="theme-mode" value="auto" ${themeMode === "auto" ? "checked" : ""}>
-            <span>Automatiskt</span>
+            <span>${this._escape(t("themeAuto"))}</span>
           </label>
           <label class="radio">
             <input class="theme-mode" type="radio" name="theme-mode" value="light" ${themeMode === "light" ? "checked" : ""}>
-            <span>Ljust</span>
+            <span>${this._escape(t("themeLight"))}</span>
           </label>
           <label class="radio">
             <input class="theme-mode" type="radio" name="theme-mode" value="dark" ${themeMode === "dark" ? "checked" : ""}>
-            <span>M&ouml;rkt</span>
+            <span>${this._escape(t("themeDark"))}</span>
           </label>
         </fieldset>
         <label class="toggle">
-          <span>Show completed open</span>
+          <span>${this._escape(t("showCompletedOpen"))}</span>
           <input class="show-completed" type="checkbox" ${this._config.show_completed ? "checked" : ""}>
         </label>
         <label class="toggle">
-          <span>Show logo</span>
+          <span>${this._escape(t("showLogo"))}</span>
           <input class="show-logo" type="checkbox" ${this._config.show_logo ? "checked" : ""}>
         </label>
         <label class="toggle">
-          <span>Ljud av / p&aring;</span>
+          <span>${this._escape(t("soundEnabled"))}</span>
           <input class="sound-enabled" type="checkbox" ${this._config.sound_enabled ? "checked" : ""}>
         </label>
         <label class="toggle">
-          <span>Stretch fullscreen</span>
+          <span>${this._escape(t("stretchFullscreen"))}</span>
           <input class="stretch-fullscreen" type="checkbox" ${this._config.stretch_fullscreen ? "checked" : ""}>
         </label>
       </div>
@@ -1256,6 +1393,9 @@ class ShoppingtajmCardEditor extends HTMLElement {
     });
     this.shadowRoot.querySelector(".background")?.addEventListener("input", (event) => {
       this._updateConfig({ background_color: event.target.value });
+    });
+    this.shadowRoot.querySelector(".preferred-language")?.addEventListener("change", (event) => {
+      this._updateConfig({ preferred_language: normalizeLanguageMode(event.target.value) });
     });
     this.shadowRoot.querySelectorAll(".theme-mode").forEach((input) => {
       input.addEventListener("change", (event) => {
