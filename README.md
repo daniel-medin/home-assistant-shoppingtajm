@@ -86,7 +86,7 @@ The active list sensor also exposes `lists` and `items` attributes for the custo
 
 ## Dashboard Card
 
-This repository includes an optional custom Lovelace card under the repository `www/` folder. The card module is `www/shoppingtajm-card.js`, with image assets in `www/shoppingtajm-icon.png`, `www/shoppingtajm-logo.png`, and `www/shoppingtajm-logo-inverted.png`.
+This repository includes brand assets under `brand/` for HACS and an optional custom Lovelace card under the repository `www/` folder. The card module is `www/shoppingtajm-card.js`, with image assets in `www/shoppingtajm-icon.png`, `www/shoppingtajm-logo.png`, and `www/shoppingtajm-logo-inverted.png`.
 
 HACS installs the integration files under `custom_components/shoppingtajm/`. The dashboard card assets currently need to be copied manually from this repository's `www/` folder into your Home Assistant `config/www/` folder:
 
