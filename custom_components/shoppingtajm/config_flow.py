@@ -50,7 +50,10 @@ async def validate_input(
     }
 
 
-class ShoppingTajmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
+class ShoppingTajmConfigFlow(  # type: ignore[call-arg, unused-ignore]
+    config_entries.ConfigFlow,
+    domain=DOMAIN,
+):
     """Handle a config flow for ShoppingTajm."""
 
     VERSION = 1

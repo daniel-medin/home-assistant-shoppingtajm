@@ -104,8 +104,6 @@ class ShoppingTajmSensor(ShoppingTajmEntity, SensorEntity):
     def native_value(self) -> datetime | int | str | None:
         """Return the native sensor value."""
         data = self.coordinator.data
-        if data is None:
-            return None
         return self.entity_description.value_fn(data)
 
     @property

@@ -11,7 +11,13 @@ from http import HTTPStatus
 from typing import Any, Self
 from urllib.parse import quote, urlencode, urljoin
 
-from aiohttp import ClientConnectionError, ClientError, ClientResponse, ClientSession
+from aiohttp import (
+    ClientConnectionError,
+    ClientError,
+    ClientResponse,
+    ClientSession,
+    ClientTimeout,
+)
 
 from .const import STATUS_ACTIVE, STATUS_COMPLETED
 
@@ -19,6 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 
 _RETRYABLE_STATUSES = {408, 409, 425, 429, 500, 502, 503, 504}
 _MAX_ATTEMPTS = 3
+_REQUEST_TIMEOUT = ClientTimeout(total=20)
 
 
 class ShoppingTajmError(Exception):
@@ -349,7 +356,7 @@ class ShoppingTajmApiClient:
                         "Accept": "application/json",
                     },
                     json=json,
-                    timeout=20,
+                    timeout=_REQUEST_TIMEOUT,
                 ) as response:
                     return await self._handle_response(response)
             except (ClientConnectionError, TimeoutError) as err:
@@ -389,7 +396,7 @@ class ShoppingTajmApiClient:
                         "Authorization": f"Bearer {self._token}",
                         "Accept": "audio/*, application/octet-stream",
                     },
-                    timeout=20,
+                    timeout=_REQUEST_TIMEOUT,
                 ) as response:
                     await self._raise_for_status(response)
                     return ShoppingTajmAudio(

@@ -17,14 +17,14 @@ TYPE_ITEM_AUDIO = "shoppingtajm/item_audio"
 TYPE_ITEM_SUGGESTIONS = "shoppingtajm/item_suggestions"
 
 
-@callback  # type: ignore[untyped-decorator]
+@callback  # type: ignore[untyped-decorator, unused-ignore]
 def async_register_websocket_commands(hass: HomeAssistant) -> None:
     """Register ShoppingTajm websocket commands."""
     websocket_api.async_register_command(hass, websocket_item_audio)
     websocket_api.async_register_command(hass, websocket_item_suggestions)
 
 
-@websocket_api.websocket_command(  # type: ignore[untyped-decorator]
+@websocket_api.websocket_command(  # type: ignore[attr-defined, untyped-decorator, unused-ignore]
     {
         vol.Required("type"): TYPE_ITEM_AUDIO,
         vol.Optional(CONF_ENTRY_ID): str,
@@ -32,10 +32,10 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
         vol.Optional(ATTR_LIST_ID): vol.Coerce(int),
     }
 )
-@websocket_api.async_response  # type: ignore[untyped-decorator]
+@websocket_api.async_response  # type: ignore[attr-defined, untyped-decorator, unused-ignore]
 async def websocket_item_audio(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: Any,
     msg: dict[str, Any],
 ) -> None:
     """Return ShoppingTajm item audio for the custom card."""
@@ -66,7 +66,7 @@ async def websocket_item_audio(
     )
 
 
-@websocket_api.websocket_command(  # type: ignore[untyped-decorator]
+@websocket_api.websocket_command(  # type: ignore[attr-defined, untyped-decorator, unused-ignore]
     {
         vol.Required("type"): TYPE_ITEM_SUGGESTIONS,
         vol.Optional(CONF_ENTRY_ID): str,
@@ -74,10 +74,10 @@ async def websocket_item_audio(
         vol.Optional(ATTR_LIST_ID): vol.Coerce(int),
     }
 )
-@websocket_api.async_response  # type: ignore[untyped-decorator]
+@websocket_api.async_response  # type: ignore[attr-defined, untyped-decorator, unused-ignore]
 async def websocket_item_suggestions(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: Any,
     msg: dict[str, Any],
 ) -> None:
     """Return ShoppingTajm item suggestions for the custom card."""
