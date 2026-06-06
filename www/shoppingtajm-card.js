@@ -1,6 +1,5 @@
 const DEFAULT_BACKGROUND = "#f7f6f1";
-const LOGO_LIGHT_SRC = "/local/shoppingtajm-logo.png?v=20260606-logo";
-const LOGO_DARK_SRC = "/local/shoppingtajm-logo-inverted.png?v=20260606-logo-inverted";
+const ICON_SRC = "/local/shoppingtajm-icon.png?v=20260606-icon";
 const THEME_MODES = ["auto", "light", "dark"];
 const LANGUAGE_MODES = ["auto", "sv", "en"];
 const DEFAULT_LANGUAGE = "en";
@@ -29,7 +28,7 @@ const CARD_TRANSLATIONS = {
     refresh: "Refresh",
     requiresEntity: "Shoppingtajm card requires an entity",
     showCompletedOpen: "Show completed open",
-    showLogo: "Show logo",
+    showLogo: "Show icon",
     soundEnabled: "Sound",
     stopReading: "Stop reading",
     stretchFullscreen: "Stretch fullscreen",
@@ -64,7 +63,7 @@ const CARD_TRANSLATIONS = {
     refresh: "Uppdatera",
     requiresEntity: "Shoppingtajm-kortet kräver en entitet",
     showCompletedOpen: "Visa kundvagnen öppen",
-    showLogo: "Visa logotyp",
+    showLogo: "Visa ikon",
     soundEnabled: "Ljud",
     stopReading: "Stoppa uppläsning",
     stretchFullscreen: "Fyll skärmen",
@@ -588,12 +587,17 @@ class ShoppingtajmCard extends HTMLElement {
     const active = this._items("active");
     const completed = this._items("cart");
     const activeListId = Number(attrs.list_id);
+    const activeList = lists.find((list) => Number(list.id) === activeListId);
+    const stateName = this._state()?.state;
+    const activeListName =
+      attrs.list_name ||
+      activeList?.name ||
+      (stateName && !["unknown", "unavailable"].includes(stateName) ? stateName : "Shoppingtajm");
     const disabled = this._busy ? "disabled" : "";
     const darkMode = this._isDarkMode();
     const dark = darkMode ? "dark" : "";
     const stretch = this._config.stretch_fullscreen ? "stretch" : "";
     const background = this._escapeCssColor(this._config.background_color || DEFAULT_BACKGROUND);
-    const logoSrc = darkMode ? LOGO_DARK_SRC : LOGO_LIGHT_SRC;
     const t = (key) => this._t(key);
 
     this.shadowRoot.innerHTML = `
@@ -601,12 +605,14 @@ class ShoppingtajmCard extends HTMLElement {
         <div class="card">
           <div class="header">
             <div class="brand">
-              <div class="brand-row">
-                ${
-                  this._config.show_logo
-                    ? `<img class="logo" src="${logoSrc}" alt="Shoppingtajm">`
-                    : `<div class="title">Shoppingtajm</div>`
-                }
+              ${
+                this._config.show_logo
+                  ? `<img class="app-icon" src="${ICON_SRC}" alt="Shoppingtajm">`
+                  : ""
+              }
+              <div class="brand-copy">
+                <div class="brand-kicker">Shoppingtajm</div>
+                <div class="title" title="${this._escape(activeListName)}">${this._escape(activeListName)}</div>
               </div>
             </div>
             <div class="header-actions">
@@ -726,32 +732,47 @@ class ShoppingtajmCard extends HTMLElement {
         }
         .header {
           justify-content: space-between;
-          margin-bottom: 14px;
+          margin: -16px -16px 14px;
+          padding: 16px 16px 14px;
+          border-bottom: 1px solid var(--shoppingtajm-line);
         }
         .header-actions {
           flex-shrink: 0;
         }
         .brand {
-          min-width: 0;
-        }
-        .brand-row {
           align-items: center;
           display: flex;
-          gap: 8px;
+          gap: 12px;
           min-width: 0;
         }
-        .title {
-          color: var(--shoppingtajm-text);
-          font-size: 20px;
-          font-weight: 600;
-          line-height: 1.2;
+        .brand-copy {
+          min-width: 0;
         }
-        .logo {
+        .brand-kicker {
+          color: #1c7c59;
+          font-size: 13px;
+          font-weight: 800;
+          line-height: 1.1;
+          text-transform: uppercase;
+        }
+        .title {
+          color: #171717;
+          font-size: 25px;
+          font-weight: 800;
+          line-height: 1.08;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        ha-card.dark .title {
+          color: var(--shoppingtajm-text);
+        }
+        .app-icon {
+          border-radius: 16px;
           display: block;
-          flex-shrink: 1;
-          height: auto;
-          max-width: 190px;
-          width: min(52vw, 190px);
+          flex: 0 0 auto;
+          height: 58px;
+          width: 58px;
         }
         .list-picker,
         .new-item {
@@ -1426,8 +1447,8 @@ window.customCards.push({
   name: "Shoppingtajm Card",
   description: "Manage Shoppingtajm lists and items.",
   documentationURL: "https://github.com/daniel-medin/home-assistant-shoppingtajm",
-  image: LOGO_LIGHT_SRC,
-  logo: LOGO_LIGHT_SRC,
+  image: ICON_SRC,
+  logo: ICON_SRC,
   preview: true,
   getEntitySuggestion: (hass, entityId) => {
     if (!isShoppingtajmCardEntity(hass, entityId)) {
