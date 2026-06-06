@@ -93,15 +93,20 @@ function languageFromHass(hass, preferredLanguage) {
   if (hassLanguage.startsWith("en")) {
     return "en";
   }
-  const timeZone = String(hass?.config?.time_zone ?? "").toLowerCase();
-  if (timeZone === "europe/stockholm") {
-    return "sv";
-  }
   return DEFAULT_LANGUAGE;
 }
 
 function localize(language, key) {
   return CARD_TRANSLATIONS[language]?.[key] ?? CARD_TRANSLATIONS[DEFAULT_LANGUAGE][key] ?? key;
+}
+
+function isShoppingtajmCardEntity(hass, entityId) {
+  const state = hass?.states?.[entityId];
+  return (
+    entityId?.startsWith("sensor.") &&
+    entityId.includes("shoppingtajm") &&
+    (entityId.includes("active_list_name") || state?.attributes?.items || state?.attributes?.lists)
+  );
 }
 
 class ShoppingtajmCard extends HTMLElement {
@@ -584,8 +589,6 @@ class ShoppingtajmCard extends HTMLElement {
     const completed = this._items("cart");
     const activeListId = Number(attrs.list_id);
     const disabled = this._busy ? "disabled" : "";
-    const playDisabled = this._busy || !active.length ? "disabled" : "";
-    const soundEnabled = this._config.sound_enabled;
     const darkMode = this._isDarkMode();
     const dark = darkMode ? "dark" : "";
     const stretch = this._config.stretch_fullscreen ? "stretch" : "";
@@ -612,13 +615,6 @@ class ShoppingtajmCard extends HTMLElement {
                   ? `<span class="sync-status" title="${this._escape(t("syncOrder"))}">
                       <ha-icon icon="mdi:sync"></ha-icon>
                     </span>`
-                  : ""
-              }
-              ${
-                soundEnabled
-                  ? `<button class="icon-button read-list" title="${this._escape(this._playing ? t("stopReading") : t("readList"))}" ${playDisabled}>
-                      <ha-icon icon="${this._playing ? "mdi:stop" : "mdi:bullhorn"}"></ha-icon>
-                    </button>`
                   : ""
               }
               <button class="icon-button refresh" title="${this._escape(t("refresh"))}" ${disabled}>
@@ -939,13 +935,6 @@ class ShoppingtajmCard extends HTMLElement {
       this._hass.callService("homeassistant", "update_entity", {
         entity_id: this._config.entity,
       });
-    });
-    this.shadowRoot.querySelector(".read-list")?.addEventListener("click", () => {
-      if (this._playing) {
-        this._stopReading();
-      } else {
-        this._readList();
-      }
     });
     this.shadowRoot.querySelector(".list-picker")?.addEventListener("change", (event) => {
       this._defaultListApplied = true;
@@ -1440,4 +1429,17 @@ window.customCards.push({
   image: LOGO_LIGHT_SRC,
   logo: LOGO_LIGHT_SRC,
   preview: true,
+  getEntitySuggestion: (hass, entityId) => {
+    if (!isShoppingtajmCardEntity(hass, entityId)) {
+      return null;
+    }
+    return {
+      config: {
+        type: "custom:shoppingtajm-card",
+        entity: entityId,
+        preferred_language: "auto",
+        theme_mode: "auto",
+      },
+    };
+  },
 });
