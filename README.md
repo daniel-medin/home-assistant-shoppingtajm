@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="custom_components/shoppingtajm/brand/logo.png" alt="Shoppingtajm" width="640">
+  <img src="https://raw.githubusercontent.com/daniel-medin/home-assistant-shoppingtajm/main/custom_components/shoppingtajm/brand/logo.png" alt="Shoppingtajm" width="640">
 </p>
 
 # Shoppingtajm for Home Assistant
