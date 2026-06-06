@@ -1,4 +1,6 @@
 const DEFAULT_BACKGROUND = "#f7f6f1";
+const LOGO_LIGHT_SRC = "/local/shoppingtajm-logo.png?v=20260606-logo";
+const LOGO_DARK_SRC = "/local/shoppingtajm-logo-inverted.png?v=20260606-logo-inverted";
 
 class ShoppingtajmCard extends HTMLElement {
   static getConfigElement() {
@@ -442,9 +444,11 @@ class ShoppingtajmCard extends HTMLElement {
     const disabled = this._busy ? "disabled" : "";
     const playDisabled = this._busy || !active.length ? "disabled" : "";
     const soundEnabled = this._config.sound_enabled;
-    const dark = this._config.dark_mode ? "dark" : "";
+    const darkMode = Boolean(this._config.dark_mode);
+    const dark = darkMode ? "dark" : "";
     const stretch = this._config.stretch_fullscreen ? "stretch" : "";
     const background = this._escapeCssColor(this._config.background_color || DEFAULT_BACKGROUND);
+    const logoSrc = darkMode ? LOGO_DARK_SRC : LOGO_LIGHT_SRC;
 
     this.shadowRoot.innerHTML = `
       <ha-card class="${dark} ${stretch}" style="--shoppingtajm-card-bg: ${background}">
@@ -454,7 +458,7 @@ class ShoppingtajmCard extends HTMLElement {
               <div class="brand-row">
                 ${
                   this._config.show_logo
-                    ? `<img class="logo" src="/local/shoppingtajm-logo.png?v=20260605-logo" alt="Shoppingtajm">`
+                    ? `<img class="logo" src="${logoSrc}" alt="Shoppingtajm">`
                     : `<div class="title">Shoppingtajm</div>`
                 }
               </div>
@@ -1216,7 +1220,7 @@ window.customCards.push({
   name: "Shoppingtajm Card",
   description: "Manage Shoppingtajm lists and items.",
   documentationURL: "https://github.com/daniel-medin/home-assistant-shoppingtajm",
-  image: "/local/shoppingtajm-logo.png?v=20260605-logo",
-  logo: "/local/shoppingtajm-logo.png?v=20260605-logo",
+  image: LOGO_LIGHT_SRC,
+  logo: LOGO_LIGHT_SRC,
   preview: true,
 });

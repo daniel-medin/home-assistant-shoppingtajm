@@ -70,13 +70,14 @@ The active list sensor also exposes `lists` and `items` attributes for the custo
 
 ## Dashboard Card
 
-This repository includes a custom Lovelace card in `www/shoppingtajm-card.js` with the Shoppingtajm logo in `www/shoppingtajm-logo.png`.
+This repository includes a custom Lovelace card in `www/shoppingtajm-card.js` with light and dark Shoppingtajm logos in `www/shoppingtajm-logo.png` and `www/shoppingtajm-logo-inverted.png`.
 
-If you install the integration through HACS, copy both files from this repository's `www/` folder into your Home Assistant `config/www/` folder:
+If you install the integration through HACS, copy these files from this repository's `www/` folder into your Home Assistant `config/www/` folder:
 
 ```text
 config/www/shoppingtajm-card.js
 config/www/shoppingtajm-logo.png
+config/www/shoppingtajm-logo-inverted.png
 ```
 
 Register the card resource:
