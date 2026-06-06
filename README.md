@@ -102,7 +102,7 @@ entity: sensor.shoppingtajm_active_list_name
 Home Assistant can also discover the card from the dashboard card picker as **Shoppingtajm Card** after the JavaScript module has loaded.
 
 The card can switch lists, add items with suggestions, rename items, edit item quantities, complete items, delete items, read the whole list aloud, read single rows aloud, and refresh the active list sensor.
-The visual editor supports background color, dark mode, opening the cart by default, logo visibility, sound on/off, stretch fullscreen, and a default list. Active items can be reordered by dragging the handle on each row; the card updates the row order locally first and shows a sync icon while Home Assistant saves the new order.
+The visual editor supports background color, automatic/light/dark theme mode, opening the cart by default, logo visibility, sound on/off, stretch fullscreen, and a default list. Active items can be reordered by dragging the handle on each row; the card updates the row order locally first and shows a sync icon while Home Assistant saves the new order.
 
 When updating the card during development, copy the changed `www/shoppingtajm-card.js` file to `config/www/` and reload the browser. If Home Assistant keeps an old cached card, add or change a cache-busting query string on the resource, for example:
 

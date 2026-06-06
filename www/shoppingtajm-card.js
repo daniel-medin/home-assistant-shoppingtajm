@@ -1,6 +1,7 @@
 const DEFAULT_BACKGROUND = "#f7f6f1";
 const LOGO_LIGHT_SRC = "/local/shoppingtajm-logo.png?v=20260606-logo";
 const LOGO_DARK_SRC = "/local/shoppingtajm-logo-inverted.png?v=20260606-logo-inverted";
+const THEME_MODES = ["auto", "light", "dark"];
 
 class ShoppingtajmCard extends HTMLElement {
   static getConfigElement() {
@@ -18,7 +19,7 @@ class ShoppingtajmCard extends HTMLElement {
     return {
       entity,
       background_color: DEFAULT_BACKGROUND,
-      dark_mode: false,
+      theme_mode: "auto",
       show_completed: true,
       show_logo: true,
       sound_enabled: true,
@@ -30,14 +31,19 @@ class ShoppingtajmCard extends HTMLElement {
     if (!config.entity) {
       throw new Error("Shoppingtajm card requires an entity");
     }
+    const normalizedConfig = {
+      ...config,
+      theme_mode: this._normalizeThemeMode(config.theme_mode, config.dark_mode),
+    };
+    delete normalizedConfig.dark_mode;
     this._config = {
       background_color: DEFAULT_BACKGROUND,
-      dark_mode: false,
+      theme_mode: "auto",
       show_completed: true,
       show_logo: true,
       sound_enabled: true,
       stretch_fullscreen: false,
-      ...config,
+      ...normalizedConfig,
     };
     this._busy = false;
     this._expandedCompleted = Boolean(this._config.show_completed);
@@ -381,7 +387,8 @@ class ShoppingtajmCard extends HTMLElement {
       items: attrs.items ?? [],
       config: {
         background_color: this._config.background_color,
-        dark_mode: this._config.dark_mode,
+        theme_mode: this._config.theme_mode,
+        dark_mode: this._isDarkMode(),
         show_completed: this._config.show_completed,
         show_logo: this._config.show_logo,
         sound_enabled: this._config.sound_enabled,
@@ -431,6 +438,27 @@ class ShoppingtajmCard extends HTMLElement {
       .join("");
   }
 
+  _normalizeThemeMode(themeMode, darkMode) {
+    if (THEME_MODES.includes(themeMode)) {
+      return themeMode;
+    }
+    return darkMode === true ? "dark" : "auto";
+  }
+
+  _isDarkMode() {
+    const themeMode = this._normalizeThemeMode(this._config.theme_mode, this._config.dark_mode);
+    if (themeMode === "dark") {
+      return true;
+    }
+    if (themeMode === "light") {
+      return false;
+    }
+    if (typeof this._hass?.themes?.darkMode === "boolean") {
+      return this._hass.themes.darkMode;
+    }
+    return Boolean(this._hass?.selectedTheme?.dark);
+  }
+
   _render() {
     if (!this.shadowRoot || !this._hass) {
       return;
@@ -444,7 +472,7 @@ class ShoppingtajmCard extends HTMLElement {
     const disabled = this._busy ? "disabled" : "";
     const playDisabled = this._busy || !active.length ? "disabled" : "";
     const soundEnabled = this._config.sound_enabled;
-    const darkMode = Boolean(this._config.dark_mode);
+    const darkMode = this._isDarkMode();
     const dark = darkMode ? "dark" : "";
     const stretch = this._config.stretch_fullscreen ? "stretch" : "";
     const background = this._escapeCssColor(this._config.background_color || DEFAULT_BACKGROUND);
@@ -1048,14 +1076,19 @@ class ShoppingtajmCard extends HTMLElement {
 
 class ShoppingtajmCardEditor extends HTMLElement {
   setConfig(config) {
+    const normalizedConfig = {
+      ...config,
+      theme_mode: this._normalizeThemeMode(config.theme_mode, config.dark_mode),
+    };
+    delete normalizedConfig.dark_mode;
     this._config = {
       background_color: DEFAULT_BACKGROUND,
-      dark_mode: false,
+      theme_mode: "auto",
       show_completed: true,
       show_logo: true,
       sound_enabled: true,
       stretch_fullscreen: false,
-      ...config,
+      ...normalizedConfig,
     };
     if (!this.shadowRoot) {
       this.attachShadow({ mode: "open" });
@@ -1088,11 +1121,19 @@ class ShoppingtajmCardEditor extends HTMLElement {
     this._render();
   }
 
+  _normalizeThemeMode(themeMode, darkMode) {
+    if (THEME_MODES.includes(themeMode)) {
+      return themeMode;
+    }
+    return darkMode === true ? "dark" : "auto";
+  }
+
   _render() {
     if (!this.shadowRoot || !this._config) {
       return;
     }
     const lists = this._lists();
+    const themeMode = this._normalizeThemeMode(this._config.theme_mode, this._config.dark_mode);
     this.shadowRoot.innerHTML = `
       <div class="editor">
         <label>
@@ -1118,10 +1159,21 @@ class ShoppingtajmCardEditor extends HTMLElement {
           <span>Background</span>
           <input class="background" type="color" value="${this._escape(this._config.background_color ?? DEFAULT_BACKGROUND)}">
         </label>
-        <label class="toggle">
-          <span>Dark mode</span>
-          <input class="dark-mode" type="checkbox" ${this._config.dark_mode ? "checked" : ""}>
-        </label>
+        <fieldset class="theme-options">
+          <legend>Tema</legend>
+          <label class="radio">
+            <input class="theme-mode" type="radio" name="theme-mode" value="auto" ${themeMode === "auto" ? "checked" : ""}>
+            <span>Automatiskt</span>
+          </label>
+          <label class="radio">
+            <input class="theme-mode" type="radio" name="theme-mode" value="light" ${themeMode === "light" ? "checked" : ""}>
+            <span>Ljust</span>
+          </label>
+          <label class="radio">
+            <input class="theme-mode" type="radio" name="theme-mode" value="dark" ${themeMode === "dark" ? "checked" : ""}>
+            <span>M&ouml;rkt</span>
+          </label>
+        </fieldset>
         <label class="toggle">
           <span>Show completed open</span>
           <input class="show-completed" type="checkbox" ${this._config.show_completed ? "checked" : ""}>
@@ -1154,6 +1206,27 @@ class ShoppingtajmCardEditor extends HTMLElement {
           display: flex;
           justify-content: space-between;
         }
+        .theme-options {
+          border: 0;
+          display: grid;
+          gap: 8px;
+          margin: 0;
+          padding: 0;
+        }
+        legend {
+          color: var(--secondary-text-color);
+          font-size: 12px;
+          padding: 0;
+        }
+        .radio {
+          align-items: center;
+          display: flex;
+          gap: 8px;
+        }
+        .radio input {
+          min-height: auto;
+          padding: 0;
+        }
         span {
           color: var(--secondary-text-color);
           font-size: 12px;
@@ -1184,8 +1257,12 @@ class ShoppingtajmCardEditor extends HTMLElement {
     this.shadowRoot.querySelector(".background")?.addEventListener("input", (event) => {
       this._updateConfig({ background_color: event.target.value });
     });
-    this.shadowRoot.querySelector(".dark-mode")?.addEventListener("change", (event) => {
-      this._updateConfig({ dark_mode: event.target.checked });
+    this.shadowRoot.querySelectorAll(".theme-mode").forEach((input) => {
+      input.addEventListener("change", (event) => {
+        if (event.target.checked) {
+          this._updateConfig({ theme_mode: event.target.value });
+        }
+      });
     });
     this.shadowRoot.querySelector(".show-completed")?.addEventListener("change", (event) => {
       this._updateConfig({ show_completed: event.target.checked });
