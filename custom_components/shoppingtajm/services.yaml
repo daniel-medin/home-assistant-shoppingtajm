@@ -17,6 +17,12 @@ add_item:
 
 complete_item:
   fields:
+    list_id:
+      required: false
+      selector:
+        number:
+          min: 1
+          mode: box
     item_id:
       required: true
       selector:
@@ -79,6 +85,12 @@ set_item_quantity:
 
 delete_item:
   fields:
+    list_id:
+      required: false
+      selector:
+        number:
+          min: 1
+          mode: box
     item_id:
       required: true
       selector:

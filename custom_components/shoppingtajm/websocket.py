@@ -47,6 +47,13 @@ async def websocket_item_audio(
     if list_id is None:
         connection.send_error(msg["id"], "missing_list_id", "Missing list_id")
         return
+    if not _is_known_grocery_list_id(coordinator, int(list_id)):
+        connection.send_error(
+            msg["id"],
+            "invalid_list_id",
+            "list_id must identify a ShoppingTajm grocery list",
+        )
+        return
 
     try:
         audio = await coordinator.api.async_get_item_audio(
@@ -89,6 +96,13 @@ async def websocket_item_suggestions(
     if list_id is None:
         connection.send_result(msg["id"], {"suggestions": []})
         return
+    if not _is_known_grocery_list_id(coordinator, int(list_id)):
+        connection.send_error(
+            msg["id"],
+            "invalid_list_id",
+            "list_id must identify a ShoppingTajm grocery list",
+        )
+        return
 
     try:
         suggestions = await coordinator.api.async_get_item_suggestions(
@@ -116,3 +130,13 @@ def _coordinator_from_msg(
 
     runtime_data = next(iter(domain_data.values()))
     return cast(ShoppingTajmCoordinator, runtime_data.coordinator)
+
+
+def _is_known_grocery_list_id(
+    coordinator: ShoppingTajmCoordinator,
+    list_id: int,
+) -> bool:
+    """Return whether a list ID belongs to the filtered grocery list set."""
+    if coordinator.data is None:
+        return True
+    return any(item.id == list_id for item in coordinator.data.lists)

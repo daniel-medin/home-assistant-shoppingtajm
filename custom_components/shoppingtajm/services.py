@@ -45,6 +45,7 @@ ADD_ITEM_SCHEMA = vol.Schema(
 ITEM_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_ITEM_ID): cv.positive_int,
+        vol.Optional(ATTR_LIST_ID): cv.positive_int,
         vol.Optional(CONF_ENTRY_ID): cv.string,
     }
 )
@@ -93,37 +94,42 @@ REORDER_ITEMS_SCHEMA = vol.Schema(
 )
 
 
-async def async_setup_services(hass: HomeAssistant) -> None:
+async def async_setup_services(hass: HomeAssistant) -> None:  # noqa: PLR0915
     """Register ShoppingTajm services."""
     if hass.services.has_service(DOMAIN, SERVICE_ADD_ITEM):
         return
 
     async def add_item(call: ServiceCall) -> None:
         coordinator = _coordinator_from_call(hass, call)
+        list_id = int(call.data[ATTR_LIST_ID])
+        _validate_grocery_list_id(coordinator, list_id)
         item_name = str(call.data[ATTR_ITEM_NAME]).strip()
         if not item_name:
             raise ServiceValidationError("item_name must not be empty")
         await _call_api(
             coordinator,
-            coordinator.api.async_add_item(int(call.data[ATTR_LIST_ID]), item_name),
+            coordinator.api.async_add_item(list_id, item_name),
         )
 
     async def complete_item(call: ServiceCall) -> None:
         coordinator = _coordinator_from_call(hass, call)
+        list_id = _list_id_from_call_or_active(coordinator, call)
         await _call_api(
             coordinator,
-            coordinator.api.async_complete_item(int(call.data[ATTR_ITEM_ID])),
+            coordinator.api.async_complete_item(int(call.data[ATTR_ITEM_ID]), list_id),
         )
 
     async def update_item(call: ServiceCall) -> None:
         coordinator = _coordinator_from_call(hass, call)
+        list_id = int(call.data[ATTR_LIST_ID])
+        _validate_grocery_list_id(coordinator, list_id)
         item_name = str(call.data[ATTR_ITEM_NAME]).strip()
         if not item_name:
             raise ServiceValidationError("item_name must not be empty")
         await _call_api(
             coordinator,
             coordinator.api.async_update_item_name(
-                int(call.data[ATTR_LIST_ID]),
+                list_id,
                 int(call.data[ATTR_ITEM_ID]),
                 item_name,
             ),
@@ -131,10 +137,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def set_item_quantity(call: ServiceCall) -> None:
         coordinator = _coordinator_from_call(hass, call)
+        list_id = int(call.data[ATTR_LIST_ID])
+        _validate_grocery_list_id(coordinator, list_id)
         await _call_api(
             coordinator,
             coordinator.api.async_set_item_quantity(
-                int(call.data[ATTR_LIST_ID]),
+                list_id,
                 int(call.data[ATTR_ITEM_ID]),
                 int(call.data[ATTR_QUANTITY]),
             ),
@@ -142,9 +150,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def delete_item(call: ServiceCall) -> None:
         coordinator = _coordinator_from_call(hass, call)
+        list_id = _list_id_from_call_or_active(coordinator, call)
         await _call_api(
             coordinator,
-            coordinator.api.async_delete_item(int(call.data[ATTR_ITEM_ID])),
+            coordinator.api.async_delete_item(int(call.data[ATTR_ITEM_ID]), list_id),
         )
 
     async def create_list(call: ServiceCall) -> None:
@@ -156,20 +165,24 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def activate_list(call: ServiceCall) -> None:
         coordinator = _coordinator_from_call(hass, call)
+        list_id = int(call.data[ATTR_LIST_ID])
+        _validate_grocery_list_id(coordinator, list_id)
         await _call_api(
             coordinator,
-            coordinator.api.async_activate_list(int(call.data[ATTR_LIST_ID])),
+            coordinator.api.async_activate_list(list_id),
         )
 
     async def reorder_items(call: ServiceCall) -> None:
         coordinator = _coordinator_from_call(hass, call)
+        list_id = int(call.data[ATTR_LIST_ID])
+        _validate_grocery_list_id(coordinator, list_id)
         item_ids = [int(item_id) for item_id in call.data[ATTR_ITEM_IDS]]
         if not item_ids:
             raise ServiceValidationError("item_ids must not be empty")
         await _call_api(
             coordinator,
             coordinator.api.async_reorder_items(
-                int(call.data[ATTR_LIST_ID]),
+                list_id,
                 str(call.data[ATTR_STATUS]),
                 item_ids,
             ),
@@ -273,3 +286,29 @@ def _coordinator_from_call(
 
     runtime_data = next(iter(domain_data.values()))
     return cast(ShoppingTajmCoordinator, runtime_data.coordinator)
+
+
+def _list_id_from_call_or_active(
+    coordinator: ShoppingTajmCoordinator,
+    call: ServiceCall,
+) -> int | None:
+    """Return the requested list ID, or the integration's active grocery list."""
+    if ATTR_LIST_ID in call.data:
+        list_id = int(call.data[ATTR_LIST_ID])
+        _validate_grocery_list_id(coordinator, list_id)
+        return list_id
+    if coordinator.data is None:
+        return None
+    return cast(int | None, coordinator.data.active_list_id)
+
+
+def _validate_grocery_list_id(
+    coordinator: ShoppingTajmCoordinator,
+    list_id: int,
+) -> None:
+    """Validate that a service targets a grocery list known to the coordinator."""
+    if coordinator.data is None:
+        return
+    if any(item.id == list_id for item in coordinator.data.lists):
+        return
+    raise ServiceValidationError("list_id must identify a ShoppingTajm grocery list")

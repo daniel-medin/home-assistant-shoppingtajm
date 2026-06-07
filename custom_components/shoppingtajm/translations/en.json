@@ -66,6 +66,10 @@
       "name": "Complete item",
       "description": "Move a Shoppingtajm item to the completed/cart state.",
       "fields": {
+        "list_id": {
+          "name": "List ID",
+          "description": "Optional numeric Shoppingtajm grocery list ID."
+        },
         "item_id": {
           "name": "Item ID",
           "description": "Numeric Shoppingtajm item ID."
@@ -124,6 +128,10 @@
       "name": "Delete item",
       "description": "Delete a Shoppingtajm item.",
       "fields": {
+        "list_id": {
+          "name": "List ID",
+          "description": "Optional numeric Shoppingtajm grocery list ID."
+        },
         "item_id": {
           "name": "Item ID",
           "description": "Numeric Shoppingtajm item ID."

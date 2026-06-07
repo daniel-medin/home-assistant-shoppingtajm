@@ -1017,12 +1017,22 @@ class ShoppingtajmCard extends HTMLElement {
     });
     this.shadowRoot.querySelectorAll("[data-complete]").forEach((button) => {
       button.addEventListener("click", () => {
-        this._call("complete_item", { item_id: Number(button.dataset.complete) });
+        const listId = Number(this._attributes().list_id);
+        const payload = { item_id: Number(button.dataset.complete) };
+        if (listId) {
+          payload.list_id = listId;
+        }
+        this._call("complete_item", payload);
       });
     });
     this.shadowRoot.querySelectorAll("[data-delete]").forEach((button) => {
       button.addEventListener("click", () => {
-        this._call("delete_item", { item_id: Number(button.dataset.delete) });
+        const listId = Number(this._attributes().list_id);
+        const payload = { item_id: Number(button.dataset.delete) };
+        if (listId) {
+          payload.list_id = listId;
+        }
+        this._call("delete_item", payload);
       });
     });
     this.shadowRoot.querySelectorAll("[data-read-item]").forEach((button) => {

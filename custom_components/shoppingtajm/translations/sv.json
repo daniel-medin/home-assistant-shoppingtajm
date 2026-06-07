@@ -66,6 +66,10 @@
       "name": "Markera vara som klar",
       "description": "Flytta en Shoppingtajm-vara till klar/kundvagn.",
       "fields": {
+        "list_id": {
+          "name": "List-ID",
+          "description": "Valfritt numeriskt Shoppingtajm-list-ID."
+        },
         "item_id": {
           "name": "Varu-ID",
           "description": "Numeriskt varu-ID i Shoppingtajm."
@@ -124,6 +128,10 @@
       "name": "Ta bort vara",
       "description": "Ta bort en Shoppingtajm-vara.",
       "fields": {
+        "list_id": {
+          "name": "List-ID",
+          "description": "Valfritt numeriskt Shoppingtajm-list-ID."
+        },
         "item_id": {
           "name": "Varu-ID",
           "description": "Numeriskt varu-ID i Shoppingtajm."

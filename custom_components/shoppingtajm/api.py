@@ -72,6 +72,10 @@ class ShoppingTajmList:
     name: str
     item_count: int | None
     update_count: int | None
+    list_type: str | None
+    list_kind: str | None
+    is_cost_list: bool | None
+    is_grocery_list: bool | None
     raw: dict[str, Any]
 
     @classmethod
@@ -84,8 +88,34 @@ class ShoppingTajmList:
             update_count=_as_optional_int(
                 data.get("updateCount") or data.get("UpdateCount")
             ),
+            list_type=_as_optional_str(_api_value(data, "listType", "ListType")),
+            list_kind=_as_optional_str(_api_value(data, "listKind", "ListKind")),
+            is_cost_list=_as_optional_bool(
+                _api_value(data, "isCostList", "IsCostList")
+            ),
+            is_grocery_list=_as_optional_bool(
+                _api_value(data, "isGroceryList", "IsGroceryList")
+            ),
             raw=data,
         )
+
+    @property
+    def supports_items(self) -> bool:
+        """Return whether this list is a grocery list with item support."""
+        if self.is_grocery_list is not None:
+            return self.is_grocery_list
+        if self.is_cost_list is True:
+            return False
+
+        list_kind = (self.list_kind or "").lower()
+        if list_kind:
+            return list_kind == "grocerylist"
+
+        list_type = (self.list_type or "").lower()
+        if list_type:
+            return list_type == "shopping"
+
+        return True
 
 
 @dataclass(slots=True, frozen=True)
@@ -179,13 +209,12 @@ class ShoppingTajmApiClient:
             status = None
 
         if status is not None and _status_has_summary(status):
-            return self._data_from_status(status)
+            return await self._data_from_status(status)
 
-        lists = tuple(await self.async_get_lists())
+        lists = _grocery_lists(tuple(await self.async_get_lists()))
         active_list_id = await self.async_get_active_list_id()
         active_list = _list_by_id(lists, active_list_id) or _pick_active_list(lists)
-        if active_list_id is None and active_list is not None:
-            active_list_id = active_list.id
+        active_list_id = active_list.id if active_list is not None else None
         items = (
             tuple(await self.async_get_items(active_list_id))
             if active_list_id is not None
@@ -277,17 +306,31 @@ class ShoppingTajmApiClient:
             json={"extraCount": extra_count},
         )
 
-    async def async_complete_item(self, item_id: int) -> None:
+    async def async_complete_item(
+        self,
+        item_id: int,
+        list_id: int | None = None,
+    ) -> None:
         """Mark an item as completed/cart in the active list."""
+        path = f"/api/items/{item_id}/status"
+        if list_id is not None:
+            path = f"{path}?{urlencode({'listId': str(list_id)})}"
         await self._request(
             "PUT",
-            f"/api/items/{item_id}/status",
+            path,
             json={"status": STATUS_COMPLETED},
         )
 
-    async def async_delete_item(self, item_id: int) -> None:
+    async def async_delete_item(
+        self,
+        item_id: int,
+        list_id: int | None = None,
+    ) -> None:
         """Delete an item from the active list."""
-        await self._request("DELETE", f"/api/items/{item_id}")
+        path = f"/api/items/{item_id}"
+        if list_id is not None:
+            path = f"{path}?{urlencode({'listId': str(list_id)})}"
+        await self._request("DELETE", path)
 
     async def async_create_list(self, name: str) -> None:
         """Create and activate a ShoppingTajm list."""
@@ -464,44 +507,54 @@ class ShoppingTajmApiClient:
                 f"ShoppingTajm returned {response.status}: {text}"
             )
 
-    def _data_from_status(self, status: dict[str, Any]) -> ShoppingTajmData:
+    async def _data_from_status(self, status: dict[str, Any]) -> ShoppingTajmData:
         """Normalize a rich `/api/ha/status` response."""
         lists_value = status.get("lists") or status.get("Lists") or []
         items_value = status.get("items") or status.get("Items") or []
-        lists = tuple(
-            ShoppingTajmList.from_api(item)
-            for item in lists_value
-            if isinstance(item, dict)
+        lists = _grocery_lists(
+            tuple(
+                ShoppingTajmList.from_api(item)
+                for item in lists_value
+                if isinstance(item, dict)
+            )
         )
-        items = tuple(
-            ShoppingTajmItem.from_api(item)
-            for item in items_value
-            if isinstance(item, dict)
-        )
-        active_list = _extract_active_list(status, lists)
-        active_list_id = _as_optional_int(
+        requested_active_list_id = _as_optional_int(
             status.get("activeListId") or status.get("ActiveListId")
         )
-        if active_list_id is None and active_list is not None:
-            active_list_id = active_list.id
-
+        active_list = _extract_active_list(status, lists)
+        active_list_id = active_list.id if active_list is not None else None
+        if active_list_id == requested_active_list_id:
+            items: tuple[ShoppingTajmItem, ...] = tuple(
+                ShoppingTajmItem.from_api(item)
+                for item in items_value
+                if isinstance(item, dict)
+            )
+        elif active_list_id is not None:
+            items = tuple(await self.async_get_items(active_list_id))
+        else:
+            items = ()
+        use_status_item_summary = (
+            active_list_id is not None and active_list_id == requested_active_list_id
+        )
         return ShoppingTajmData(
             server_url=self.server_url,
-            total_lists=_as_optional_int(
-                status.get("totalLists") or status.get("TotalLists")
-            )
-            or len(lists),
+            total_lists=len(lists),
             active_list_id=active_list_id,
-            active_list_name=_as_optional_str(
-                status.get("activeListName") or status.get("ActiveListName")
-            )
-            or (active_list.name if active_list else None),
-            remaining_items=_as_optional_int(
-                status.get("remainingItems") or status.get("RemainingItems")
+            active_list_name=active_list.name if active_list else None,
+            remaining_items=(
+                _as_optional_int(
+                    status.get("remainingItems") or status.get("RemainingItems")
+                )
+                if use_status_item_summary
+                else None
             )
             or sum(1 for item in items if item.status == STATUS_ACTIVE),
-            completed_items=_as_optional_int(
-                status.get("completedItems") or status.get("CompletedItems")
+            completed_items=(
+                _as_optional_int(
+                    status.get("completedItems") or status.get("CompletedItems")
+                )
+                if use_status_item_summary
+                else None
             )
             or sum(1 for item in items if item.status == STATUS_COMPLETED),
             last_updated=_as_optional_str(
@@ -549,7 +602,9 @@ def _extract_active_list(
     """Extract active list from a status response."""
     active_value = status.get("activeList") or status.get("ActiveList")
     if isinstance(active_value, dict):
-        return ShoppingTajmList.from_api(active_value)
+        active_list = ShoppingTajmList.from_api(active_value)
+        if active_list.supports_items:
+            return active_list
 
     active_id = _as_optional_int(
         status.get("activeListId") or status.get("ActiveListId")
@@ -560,6 +615,11 @@ def _extract_active_list(
                 return item
 
     return _pick_active_list(lists)
+
+
+def _grocery_lists(lists: tuple[ShoppingTajmList, ...]) -> tuple[ShoppingTajmList, ...]:
+    """Return only lists that expose grocery item behavior."""
+    return tuple(item for item in lists if item.supports_items)
 
 
 def _pick_active_list(lists: tuple[ShoppingTajmList, ...]) -> ShoppingTajmList | None:
@@ -594,6 +654,14 @@ def _as_int(value: Any) -> int:
         raise ShoppingTajmValidationError("API response is missing an ID") from err
 
 
+def _api_value(data: dict[str, Any], *keys: str) -> Any:
+    """Return the first present API value, preserving false-y values."""
+    for key in keys:
+        if key in data:
+            return data[key]
+    return None
+
+
 def _as_optional_int(value: Any) -> int | None:
     """Convert API value to optional int."""
     if value is None:
@@ -602,6 +670,23 @@ def _as_optional_int(value: Any) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _as_optional_bool(value: Any) -> bool | None:
+    """Convert API value to optional bool."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text in {"true", "1", "yes"}:
+            return True
+        if text in {"false", "0", "no"}:
+            return False
+    if isinstance(value, int):
+        return bool(value)
+    return None
 
 
 def _as_optional_str(value: Any) -> str | None:

@@ -124,6 +124,9 @@ class ShoppingTajmSensor(ShoppingTajmEntity, SensorEntity):
                 "name": item.name,
                 "item_count": item.item_count,
                 "update_count": item.update_count,
+                "list_type": item.list_type,
+                "list_kind": item.list_kind,
+                "is_grocery_list": item.supports_items,
                 "is_active": item.id == data.active_list_id,
             }
             for item in data.lists

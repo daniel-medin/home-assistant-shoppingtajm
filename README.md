@@ -31,6 +31,7 @@ The integration is built for HACS and uses the Shoppingtajm REST API with Person
 - Button entity to refresh Shoppingtajm data immediately
 - Home Assistant services for adding, completing, deleting, and creating lists
 - Custom Lovelace card for switching lists and managing items
+- Cost lists are ignored; the integration only exposes grocery lists
 - Diagnostics with token redaction
 - Config entry migration hook
 - HACS, Ruff, MyPy, HACS validation, and hassfest workflow files
@@ -82,7 +83,7 @@ Button:
 
 - `button.shoppingtajm_refresh_shopping_data`
 
-The active list sensor also exposes `lists` and `items` attributes for the custom dashboard card.
+The active list sensor also exposes `lists` and `items` attributes for the custom dashboard card. `lists` only contains grocery lists. If the active Shoppingtajm list is a cost list, the integration falls back to the first available grocery list for item reads and card actions.
 
 ## Dashboard Card
 
@@ -146,6 +147,7 @@ data:
 ```yaml
 action: shoppingtajm.complete_item
 data:
+  list_id: 123
   item_id: 456
 ```
 
@@ -174,6 +176,7 @@ data:
 ```yaml
 action: shoppingtajm.delete_item
 data:
+  list_id: 123
   item_id: 456
 ```
 
@@ -205,7 +208,7 @@ data:
     - 789
 ```
 
-If you configure multiple Shoppingtajm accounts, include `entry_id` in service calls.
+If you configure multiple Shoppingtajm accounts, include `entry_id` in service calls. `list_id` is optional for `complete_item` and `delete_item`; when omitted, the integration uses its active grocery list.
 
 ## Automation Examples
 
