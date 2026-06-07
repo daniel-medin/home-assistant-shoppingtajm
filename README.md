@@ -95,7 +95,7 @@ This repository includes brand assets under `brand/` for HACS and an optional cu
 Register the card resource:
 
 ```text
-/shoppingtajm_static/shoppingtajm-card.js?v=0.1.10
+/shoppingtajm_static/shoppingtajm-card.js?v=0.1.12
 ```
 
 Use resource type:
