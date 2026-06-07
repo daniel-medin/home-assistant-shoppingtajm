@@ -29,6 +29,7 @@ The integration is built for HACS and uses the Shoppingtajm REST API with Person
 - Push refresh from the Shoppingtajm SSE endpoint, with 60 second polling fallback through `DataUpdateCoordinator`
 - Sensors for total lists, active list, remaining items, completed items, and last update time
 - Button entity to refresh Shoppingtajm data immediately
+- Event `shoppingtajm_item_added` for simple automations when an item is added to the active list
 - Home Assistant services for adding, completing, deleting, and creating lists
 - Custom Lovelace card for switching lists and managing items
 - Cost lists are ignored; the integration only exposes grocery lists
@@ -85,6 +86,8 @@ Button:
 
 The active list sensor also exposes `lists` and `items` attributes for the custom dashboard card. `lists` only contains grocery lists. If the active Shoppingtajm list is a cost list, the integration falls back to the first available grocery list for item reads and card actions.
 
+The integration fires `shoppingtajm_item_added` when a new item appears in the current active list. The event data includes `list_id`, `list_name`, `item_id`, `item_name`, and `status`.
+
 ## Dashboard Card
 
 This repository includes brand assets under `brand/` for HACS and an optional custom Lovelace card under the repository `www/` folder. HACS installs an integration-served copy of the card under `custom_components/shoppingtajm/www/`.
@@ -112,7 +115,7 @@ entity: sensor.shoppingtajm_active_list_name
 
 Home Assistant can also discover the card from the dashboard card picker as **Shoppingtajm Card** after the JavaScript module resource has loaded.
 
-The card can switch lists, add items with suggestions, rename items, edit item quantities, complete items, delete items, read single rows aloud, and refresh the active list sensor.
+The card can switch lists, add items with suggestions, rename items, edit item quantities, complete items, delete items, and read single rows aloud.
 If the Shoppingtajm integration has not been added in Home Assistant yet, the card shows setup instructions instead of inactive controls.
 The visual editor supports preferred language (automatic from the Home Assistant user language, Swedish, or English), background color, automatic/light/dark theme mode, opening the cart by default, icon visibility, sound on/off, stretch fullscreen, and a default list. Active items can be reordered by dragging the handle on each row; the card updates the row order locally first and shows a sync icon while Home Assistant saves the new order. On Home Assistant 2026.6 and newer, the card is suggested automatically for Shoppingtajm active-list sensor entities.
 
@@ -244,30 +247,22 @@ actions:
       name: "Fredagshandling"
 ```
 
-Notify once when groceries have been added:
+Notify once when items are added to the current active list:
 
 ```yaml
 alias: Notify when Shoppingtajm groceries are added
 mode: restart
 triggers:
-  - trigger: state
-    entity_id: sensor.shoppingtajm_active_list_name
-    attribute: items
-conditions:
-  - condition: template
-    value_template: >
-      {% set old_items = trigger.from_state.attributes.items | default([], true) %}
-      {% set new_items = trigger.to_state.attributes.items | default([], true) %}
-      {{ trigger.from_state.attributes.list_id == trigger.to_state.attributes.list_id
-         and new_items | count > old_items | count }}
+  - trigger: event
+    event_type: shoppingtajm_item_added
 actions:
   - delay: "00:02:00"
   - action: notify.mobile_app_your_phone
     data:
-      message: "Lista {{ states('sensor.shoppingtajm_active_list_name') }} in Shoppingtajm is updated!"
+      message: "Lista {{ trigger.event.data.list_name }} in Shoppingtajm is updated!"
 ```
 
-Replace `notify.mobile_app_your_phone` with the notify action for your Home Assistant mobile app device. The `mode: restart` line debounces repeated additions: if more groceries are added during the 2 minute delay, the timer starts over and only the final notification is sent.
+Replace `notify.mobile_app_your_phone` with the notify action for your Home Assistant mobile app device. The `mode: restart` line debounces repeated additions: if more items are added during the 2 minute delay, the timer starts over and only the final notification is sent.
 
 ## Development
 

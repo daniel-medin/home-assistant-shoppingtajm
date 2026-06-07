@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import suppress
-from typing import Final
+from typing import Any, Final
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -18,7 +18,7 @@ from .api import (
     ShoppingTajmError,
     ShoppingTajmNotFoundError,
 )
-from .const import DEFAULT_SCAN_INTERVAL, NAME
+from .const import DEFAULT_SCAN_INTERVAL, EVENT_ITEM_ADDED, NAME
 
 _LOGGER = logging.getLogger(__name__)
 _SSE_CHANGED_EVENT: Final = "shoppingtajm_changed"
@@ -67,11 +67,13 @@ class ShoppingTajmCoordinator(DataUpdateCoordinator[ShoppingTajmData]):
     async def _async_update_data(self) -> ShoppingTajmData:
         """Fetch data from ShoppingTajm."""
         try:
-            return await self.api.async_get_data()
+            data = await self.api.async_get_data()
         except ShoppingTajmAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except ShoppingTajmError as err:
             raise UpdateFailed(str(err)) from err
+        self._async_fire_item_added_events(data)
+        return data
 
     async def _async_sse_listener(self) -> None:
         """Listen for ShoppingTajm events and push fresh data to entities."""
@@ -118,4 +120,27 @@ class ShoppingTajmCoordinator(DataUpdateCoordinator[ShoppingTajmData]):
         except ShoppingTajmError as err:
             _LOGGER.warning("ShoppingTajm push refresh failed: %s", err)
             return
+        self._async_fire_item_added_events(data)
         self.async_set_updated_data(data)
+
+    def _async_fire_item_added_events(self, data: ShoppingTajmData) -> None:
+        """Fire Home Assistant events for newly added active-list items."""
+        previous = self.data
+        if (
+            previous is None
+            or previous.active_list_id is None
+            or data.active_list_id != previous.active_list_id
+        ):
+            return
+
+        previous_item_ids = {item.id for item in previous.items}
+        added_items = [item for item in data.items if item.id not in previous_item_ids]
+        for item in added_items:
+            event_data: dict[str, Any] = {
+                "list_id": data.active_list_id,
+                "list_name": data.active_list_name or "",
+                "item_id": item.id,
+                "item_name": item.name,
+                "status": item.status,
+            }
+            self.hass.bus.async_fire(EVENT_ITEM_ADDED, event_data)

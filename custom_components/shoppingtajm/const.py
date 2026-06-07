@@ -26,6 +26,8 @@ ATTR_NAME: Final = "name"
 ATTR_QUANTITY: Final = "quantity"
 ATTR_STATUS: Final = "status"
 
+EVENT_ITEM_ADDED: Final = f"{DOMAIN}_item_added"
+
 SERVICE_ADD_ITEM: Final = "add_item"
 SERVICE_COMPLETE_ITEM: Final = "complete_item"
 SERVICE_DELETE_ITEM: Final = "delete_item"

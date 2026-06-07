@@ -1,5 +1,5 @@
 const DEFAULT_BACKGROUND = "#f7f6f1";
-const CARD_VERSION = "0.1.10";
+const CARD_VERSION = "0.1.11";
 const CARD_RESOURCE_URL = `/shoppingtajm_static/shoppingtajm-card.js?v=${CARD_VERSION}`;
 const ICON_SRC = `/shoppingtajm_static/shoppingtajm-icon.png?v=${CARD_VERSION}-icon`;
 const THEME_MODES = ["auto", "light", "dark"];
@@ -27,7 +27,6 @@ const CARD_TRANSLATIONS = {
     milk: "Milk",
     readItem: "Read item",
     readList: "Read list",
-    refresh: "Refresh",
     requiresEntity: "Shoppingtajm card requires an entity",
     setupMessage: `No Shoppingtajm active-list sensor was found. Make sure the integration is loaded. If you previously used /local/shoppingtajm-card.js, replace that dashboard resource with ${CARD_RESOURCE_URL}.`,
     setupTitle: "Shoppingtajm is not configured yet",
@@ -64,7 +63,6 @@ const CARD_TRANSLATIONS = {
     milk: "Mjölk",
     readItem: "Läs vara",
     readList: "Läs listan",
-    refresh: "Uppdatera",
     requiresEntity: "Shoppingtajm-kortet kräver en entitet",
     setupMessage: `Ingen Shoppingtajm-sensor för aktiv lista hittades. Kontrollera att integrationen är laddad. Om du tidigare använde /local/shoppingtajm-card.js, byt dashboard-resursen till ${CARD_RESOURCE_URL}.`,
     setupTitle: "Shoppingtajm är inte konfigurerat än",
@@ -643,13 +641,6 @@ class ShoppingtajmCard extends HTMLElement {
                     </span>`
                   : ""
               }
-              ${
-                hasState
-                  ? `<button class="icon-button refresh" title="${this._escape(t("refresh"))}" ${disabled}>
-                      <ha-icon icon="mdi:refresh"></ha-icon>
-                    </button>`
-                  : ""
-              }
             </div>
           </div>
 
@@ -1014,11 +1005,6 @@ class ShoppingtajmCard extends HTMLElement {
   }
 
   _bindEvents() {
-    this.shadowRoot.querySelector(".refresh")?.addEventListener("click", () => {
-      this._hass.callService("homeassistant", "update_entity", {
-        entity_id: this._entityId() ?? this._config.entity,
-      });
-    });
     this.shadowRoot.querySelector(".list-picker")?.addEventListener("change", (event) => {
       this._defaultListApplied = true;
       this._call("activate_list", { list_id: Number(event.target.value) });
