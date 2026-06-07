@@ -87,21 +87,12 @@ The active list sensor also exposes `lists` and `items` attributes for the custo
 
 ## Dashboard Card
 
-This repository includes brand assets under `brand/` for HACS and an optional custom Lovelace card under the repository `www/` folder. The card module is `www/shoppingtajm-card.js`, with image assets in `www/shoppingtajm-icon.png`, `www/shoppingtajm-logo.png`, and `www/shoppingtajm-logo-inverted.png`.
-
-HACS installs the integration files under `custom_components/shoppingtajm/`. The dashboard card assets currently need to be copied manually from this repository's `www/` folder into your Home Assistant `config/www/` folder:
-
-```text
-config/www/shoppingtajm-card.js
-config/www/shoppingtajm-icon.png
-config/www/shoppingtajm-logo.png
-config/www/shoppingtajm-logo-inverted.png
-```
+This repository includes brand assets under `brand/` for HACS and an optional custom Lovelace card under the repository `www/` folder. HACS installs an integration-served copy of the card under `custom_components/shoppingtajm/www/`.
 
 Register the card resource:
 
 ```text
-/local/shoppingtajm-card.js
+/shoppingtajm_static/shoppingtajm-card.js?v=0.1.8
 ```
 
 Use resource type:
@@ -110,7 +101,7 @@ Use resource type:
 JavaScript Module
 ```
 
-After changing copied card files, reload the browser. If Home Assistant keeps an old cached card, update the resource URL with a cache-busting query string, for example `/local/shoppingtajm-card.js?v=20260606`.
+If you previously used `/local/shoppingtajm-card.js`, replace that dashboard resource with the `/shoppingtajm_static/...` resource above. HACS updates the integration-served card, but it does not update old manually copied files in `config/www/`.
 
 Then add a manual dashboard card:
 
@@ -125,10 +116,10 @@ The card can switch lists, add items with suggestions, rename items, edit item q
 If the Shoppingtajm integration has not been added in Home Assistant yet, the card shows setup instructions instead of inactive controls.
 The visual editor supports preferred language (automatic from the Home Assistant user language, Swedish, or English), background color, automatic/light/dark theme mode, opening the cart by default, icon visibility, sound on/off, stretch fullscreen, and a default list. Active items can be reordered by dragging the handle on each row; the card updates the row order locally first and shows a sync icon while Home Assistant saves the new order. On Home Assistant 2026.6 and newer, the card is suggested automatically for Shoppingtajm active-list sensor entities.
 
-When updating the card during development, copy the changed files from `www/` to `config/www/` and reload the browser. If Home Assistant keeps an old cached card, add or change a cache-busting query string on the resource, for example:
+When updating the card during development, copy the changed files from `www/` to `custom_components/shoppingtajm/www/` and reload the browser. If Home Assistant keeps an old cached card, add or change a cache-busting query string on the resource, for example:
 
 ```text
-/local/shoppingtajm-card.js?v=20260605
+/shoppingtajm_static/shoppingtajm-card.js?v=dev
 ```
 
 ## Services
