@@ -95,7 +95,7 @@ This repository includes brand assets under `brand/` for HACS and an optional cu
 Register the card resource:
 
 ```text
-/shoppingtajm_static/shoppingtajm-card.js?v=0.1.12
+/shoppingtajm_static/shoppingtajm-card.js?v=0.1.13
 ```
 
 Use resource type:
@@ -251,18 +251,38 @@ Notify once when items are added to the current active list:
 
 ```yaml
 alias: Notify when Shoppingtajm groceries are added
-mode: restart
+description: ""
 triggers:
   - trigger: event
     event_type: shoppingtajm_item_added
+conditions: []
 actions:
   - delay: "00:02:00"
   - action: notify.mobile_app_your_phone
     data:
       message: "Lista {{ trigger.event.data.list_name }} in Shoppingtajm is updated!"
+mode: restart
 ```
 
 Replace `notify.mobile_app_your_phone` with the notify action for your Home Assistant mobile app device. The `mode: restart` line debounces repeated additions: if more items are added during the 2 minute delay, the timer starts over and only the final notification is sent.
+
+To test the automation, go to **Developer Tools** > **Events** and fire this event type:
+
+```text
+shoppingtajm_item_added
+```
+
+With this YAML event data:
+
+```yaml
+list_name: Groceries
+item_name: Milk
+item_id: test-item
+list_id: test-list
+status: pending
+```
+
+The `trigger.event.data.list_name` template is filled from the event data and only exists when the automation is triggered by `shoppingtajm_item_added`. If you test only the notify action manually in **Developer Tools** > **Actions**, use a fixed message instead, for example `Lista Groceries in Shoppingtajm is updated!`.
 
 ## Development
 
