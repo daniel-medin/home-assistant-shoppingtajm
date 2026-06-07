@@ -253,6 +253,31 @@ actions:
       name: "Fredagshandling"
 ```
 
+Notify once when groceries have been added:
+
+```yaml
+alias: Notify when Shoppingtajm groceries are added
+mode: restart
+triggers:
+  - trigger: state
+    entity_id: sensor.shoppingtajm_active_list_name
+    attribute: items
+conditions:
+  - condition: template
+    value_template: >
+      {% set old_items = trigger.from_state.attributes.items | default([], true) %}
+      {% set new_items = trigger.to_state.attributes.items | default([], true) %}
+      {{ trigger.from_state.attributes.list_id == trigger.to_state.attributes.list_id
+         and new_items | count > old_items | count }}
+actions:
+  - delay: "00:02:00"
+  - action: notify.mobile_app_your_phone
+    data:
+      message: "Lista {{ states('sensor.shoppingtajm_active_list_name') }} in Shoppingtajm is updated!"
+```
+
+Replace `notify.mobile_app_your_phone` with the notify action for your Home Assistant mobile app device. The `mode: restart` line debounces repeated additions: if more groceries are added during the 2 minute delay, the timer starts over and only the final notification is sent.
+
 ## Development
 
 Install development dependencies:
