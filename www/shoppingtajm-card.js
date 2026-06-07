@@ -27,6 +27,9 @@ const CARD_TRANSLATIONS = {
     readList: "Read list",
     refresh: "Refresh",
     requiresEntity: "Shoppingtajm card requires an entity",
+    setupMessage:
+      "Install Shoppingtajm with HACS, restart Home Assistant, then go to Settings > Devices & services > Add integration and add Shoppingtajm with your API key.",
+    setupTitle: "Shoppingtajm is not configured yet",
     showCompletedOpen: "Show completed open",
     showLogo: "Show icon",
     soundEnabled: "Sound",
@@ -62,6 +65,9 @@ const CARD_TRANSLATIONS = {
     readList: "Läs listan",
     refresh: "Uppdatera",
     requiresEntity: "Shoppingtajm-kortet kräver en entitet",
+    setupMessage:
+      "Installera Shoppingtajm med HACS, starta om Home Assistant och gå sedan till Inställningar > Enheter och tjänster > Lägg till integration. Lägg till Shoppingtajm med din API-nyckel.",
+    setupTitle: "Shoppingtajm är inte konfigurerat än",
     showCompletedOpen: "Visa kundvagnen öppen",
     showLogo: "Visa ikon",
     soundEnabled: "Ljud",
@@ -134,11 +140,9 @@ class ShoppingtajmCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config.entity) {
-      throw new Error(localize(DEFAULT_LANGUAGE, "requiresEntity"));
-    }
     const normalizedConfig = {
       ...config,
+      entity: config.entity || "sensor.shoppingtajm_active_list_name",
       preferred_language: normalizeLanguageMode(config.preferred_language),
       theme_mode: this._normalizeThemeMode(config.theme_mode, config.dark_mode),
     };
@@ -583,6 +587,7 @@ class ShoppingtajmCard extends HTMLElement {
     }
 
     const attrs = this._attributes();
+    const hasState = Boolean(this._state());
     const lists = attrs.lists ?? [];
     const active = this._items("active");
     const completed = this._items("cart");
@@ -617,53 +622,63 @@ class ShoppingtajmCard extends HTMLElement {
             </div>
             <div class="header-actions">
               ${
-                this._reorderSyncing
+                hasState && this._reorderSyncing
                   ? `<span class="sync-status" title="${this._escape(t("syncOrder"))}">
                       <ha-icon icon="mdi:sync"></ha-icon>
                     </span>`
                   : ""
               }
-              <button class="icon-button refresh" title="${this._escape(t("refresh"))}" ${disabled}>
-                <ha-icon icon="mdi:refresh"></ha-icon>
-              </button>
+              ${
+                hasState
+                  ? `<button class="icon-button refresh" title="${this._escape(t("refresh"))}" ${disabled}>
+                      <ha-icon icon="mdi:refresh"></ha-icon>
+                    </button>`
+                  : ""
+              }
             </div>
           </div>
 
-          <div class="add-row">
-            <input class="new-item" type="text" placeholder="${this._escape(t("addItem"))}" list="shoppingtajm-suggestions" autocomplete="off" ${disabled}>
-            <datalist id="shoppingtajm-suggestions">
-              ${this._suggestions
-                .map((item) => `<option value="${this._escape(item.name ?? item.Name ?? "")}"></option>`)
-                .join("")}
-            </datalist>
-            <select class="list-picker" title="${this._escape(t("chooseList"))}" ${disabled}>
-              ${lists
-                .map(
-                  (list) => `
-                    <option value="${list.id}" ${Number(list.id) === activeListId ? "selected" : ""}>
-                      ${this._escape(list.name)}
-                    </option>
-                  `,
-                )
-                .join("")}
-            </select>
-            <button class="add" title="${this._escape(t("addItem"))}" ${disabled}>
-              <ha-icon icon="mdi:plus"></ha-icon>
-            </button>
-          </div>
+          ${
+            hasState
+              ? `
+                <div class="add-row">
+                  <input class="new-item" type="text" placeholder="${this._escape(t("addItem"))}" list="shoppingtajm-suggestions" autocomplete="off" ${disabled}>
+                  <datalist id="shoppingtajm-suggestions">
+                    ${this._suggestions
+                      .map((item) => `<option value="${this._escape(item.name ?? item.Name ?? "")}"></option>`)
+                      .join("")}
+                  </datalist>
+                  <select class="list-picker" title="${this._escape(t("chooseList"))}" ${disabled}>
+                    ${lists
+                      .map(
+                        (list) => `
+                          <option value="${list.id}" ${Number(list.id) === activeListId ? "selected" : ""}>
+                            ${this._escape(list.name)}
+                          </option>
+                        `,
+                      )
+                      .join("")}
+                  </select>
+                  <button class="add" title="${this._escape(t("addItem"))}" ${disabled}>
+                    <ha-icon icon="mdi:plus"></ha-icon>
+                  </button>
+                </div>
 
-          <div class="items active-items">
-            ${active.length ? active.map((item) => this._itemTemplate(item, false, disabled)).join("") : this._previewOrEmpty()}
-          </div>
+                <div class="items active-items">
+                  ${active.length ? active.map((item) => this._itemTemplate(item, false, disabled)).join("") : this._emptyActiveItems()}
+                </div>
 
-          <button class="completed-toggle" ${disabled}>
-            <ha-icon icon="${this._expandedCompleted ? "mdi:chevron-up" : "mdi:chevron-down"}"></ha-icon>
-            ${this._escape(t("cart"))}
-          </button>
+                <button class="completed-toggle" ${disabled}>
+                  <ha-icon icon="${this._expandedCompleted ? "mdi:chevron-up" : "mdi:chevron-down"}"></ha-icon>
+                  ${this._escape(t("cart"))}
+                </button>
 
-          <div class="items completed ${this._expandedCompleted ? "open" : ""}">
-            ${completed.map((item) => this._itemTemplate(item, true, disabled)).join("")}
-          </div>
+                <div class="items completed ${this._expandedCompleted ? "open" : ""}">
+                  ${completed.map((item) => this._itemTemplate(item, true, disabled)).join("")}
+                </div>
+              `
+              : this._setupNotice()
+          }
         </div>
       </ha-card>
       <style>
@@ -937,6 +952,32 @@ class ShoppingtajmCard extends HTMLElement {
           padding: 14px 0;
           text-align: center;
         }
+        .setup-notice {
+          align-items: flex-start;
+          background: var(--shoppingtajm-input);
+          border: 1px solid var(--shoppingtajm-line);
+          border-radius: 8px;
+          display: flex;
+          gap: 12px;
+          padding: 14px;
+        }
+        .setup-notice ha-icon {
+          color: #d97706;
+          flex: 0 0 auto;
+          margin-top: 2px;
+        }
+        .setup-copy {
+          display: grid;
+          gap: 6px;
+        }
+        .setup-title {
+          font-weight: 800;
+        }
+        .setup-message {
+          color: var(--shoppingtajm-muted);
+          font-size: 14px;
+          line-height: 1.45;
+        }
         @keyframes shoppingtajm-spin {
           from {
             transform: rotate(0deg);
@@ -1133,54 +1174,19 @@ class ShoppingtajmCard extends HTMLElement {
     });
   }
 
-  _previewOrEmpty() {
+  _emptyActiveItems() {
     const t = (key) => this._t(key);
-    if (this._state()) {
-      return `<div class="empty">${this._escape(t("emptyActiveItems"))}</div>`;
-    }
+    return `<div class="empty">${this._escape(t("emptyActiveItems"))}</div>`;
+  }
+
+  _setupNotice() {
+    const t = (key) => this._t(key);
     return `
-      <div class="item">
-        <button class="drag-handle" title="${this._escape(t("dragToReorder"))}" disabled>
-          <ha-icon icon="mdi:drag"></ha-icon>
-        </button>
-        <div class="name">${this._escape(t("milk"))}</div>
-        <div class="actions">
-          <span class="quantity-pill">2</span>
-          ${
-            this._config.sound_enabled
-              ? `<button class="read-item" title="${this._escape(t("readItem"))}" disabled>
-                  <ha-icon icon="mdi:bullhorn"></ha-icon>
-                </button>`
-              : ""
-          }
-          <button class="done" title="${this._escape(t("markAsDone"))}" disabled>
-            <ha-icon icon="mdi:check"></ha-icon>
-          </button>
-          <button class="delete" title="${this._escape(t("deleteItem"))}" disabled>
-            <ha-icon icon="mdi:delete-outline"></ha-icon>
-          </button>
-        </div>
-      </div>
-      <div class="item">
-        <button class="drag-handle" title="${this._escape(t("dragToReorder"))}" disabled>
-          <ha-icon icon="mdi:drag"></ha-icon>
-        </button>
-          <div class="name">Kaffe</div>
-          <div class="actions">
-          <span class="quantity-pill">1</span>
-          ${
-            this._config.sound_enabled
-              ? `<button class="read-item" title="${this._escape(t("readItem"))}" disabled>
-                  <ha-icon icon="mdi:bullhorn"></ha-icon>
-                </button>`
-              : ""
-          }
-          <button class="done" title="${this._escape(t("markAsDone"))}" disabled>
-            <ha-icon icon="mdi:check"></ha-icon>
-          </button>
-          <button class="delete" title="${this._escape(t("deleteItem"))}" disabled>
-            <ha-icon icon="mdi:delete-outline"></ha-icon>
-          </button>
+      <div class="setup-notice">
+        <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+        <div class="setup-copy">
+          <div class="setup-title">${this._escape(t("setupTitle"))}</div>
+          <div class="setup-message">${this._escape(t("setupMessage"))}</div>
         </div>
       </div>
     `;
