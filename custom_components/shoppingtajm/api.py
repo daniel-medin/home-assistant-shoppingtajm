@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from http import HTTPStatus
@@ -26,6 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 _RETRYABLE_STATUSES = {408, 409, 425, 429, 500, 502, 503, 504}
 _MAX_ATTEMPTS = 3
 _REQUEST_TIMEOUT = ClientTimeout(total=20)
+_EVENT_STREAM_TIMEOUT = ClientTimeout(total=None, sock_connect=20)
 
 
 class ShoppingTajmError(Exception):
@@ -62,6 +64,15 @@ class ShoppingTajmAudio:
 
     content: bytes
     content_type: str
+
+
+@dataclass(slots=True, frozen=True)
+class ShoppingTajmEvent:
+    """A ShoppingTajm server-sent event."""
+
+    event: str
+    id: str | None
+    data: str
 
 
 @dataclass(slots=True, frozen=True)
@@ -377,6 +388,43 @@ class ShoppingTajmApiClient:
             "GET",
             f"/api/items/{item_id}/audio?{urlencode({'listId': str(list_id)})}",
         )
+
+    async def async_iter_events(
+        self,
+        last_event_id: str | None = None,
+    ) -> AsyncIterator[ShoppingTajmEvent]:
+        """Stream ShoppingTajm server-sent events."""
+        url = urljoin(f"{self.server_url}/", "/api/ha/events".lstrip("/"))
+        headers = {
+            "Authorization": f"Bearer {self._token}",
+            "Accept": "text/event-stream",
+        }
+        if last_event_id is not None:
+            headers["Last-Event-ID"] = last_event_id
+
+        try:
+            async with self._session.get(
+                url,
+                headers=headers,
+                timeout=_EVENT_STREAM_TIMEOUT,
+            ) as response:
+                await self._raise_for_status(response)
+                content_type = response.headers.get("Content-Type", "")
+                if "text/event-stream" not in content_type.lower():
+                    raise ShoppingTajmValidationError(
+                        f"Unexpected ShoppingTajm event content type: {content_type}"
+                    )
+
+                async for event in _iter_sse_events(response):
+                    yield event
+        except (ClientConnectionError, TimeoutError) as err:
+            raise ShoppingTajmConnectionError(
+                "Could not connect to ShoppingTajm event stream"
+            ) from err
+        except ClientError as err:
+            raise ShoppingTajmConnectionError(
+                "Could not communicate with ShoppingTajm event stream"
+            ) from err
 
     async def _request(
         self,
@@ -700,3 +748,40 @@ def _as_optional_str(value: Any) -> str | None:
 def quote_path_value(value: str) -> str:
     """Quote a value for use in an API path."""
     return quote(value, safe="")
+
+
+async def _iter_sse_events(
+    response: ClientResponse,
+) -> AsyncIterator[ShoppingTajmEvent]:
+    """Parse server-sent event frames from an aiohttp response."""
+    event_type = "message"
+    event_id: str | None = None
+    data_lines: list[str] = []
+
+    async for raw_line in response.content:
+        line = raw_line.decode("utf-8").rstrip("\r\n")
+        if not line:
+            if data_lines:
+                yield ShoppingTajmEvent(
+                    event=event_type,
+                    id=event_id,
+                    data="\n".join(data_lines),
+                )
+            event_type = "message"
+            event_id = None
+            data_lines = []
+            continue
+
+        if line.startswith(":"):
+            continue
+
+        field, separator, value = line.partition(":")
+        if separator and value.startswith(" "):
+            value = value[1:]
+
+        if field == "event":
+            event_type = value
+        elif field == "id":
+            event_id = value
+        elif field == "data":
+            data_lines.append(value)

@@ -80,6 +80,7 @@ async def async_setup_entry(
 
     entry.runtime_data = ShoppingTajmRuntimeData(api=api, coordinator=coordinator)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = entry.runtime_data
+    coordinator.async_start_sse_listener()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -90,6 +91,7 @@ async def async_unload_entry(
     entry: ConfigEntry,
 ) -> bool:
     """Unload a ShoppingTajm config entry."""
+    await entry.runtime_data.coordinator.async_stop_sse_listener()
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)

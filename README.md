@@ -26,7 +26,7 @@ The integration is built for HACS and uses the Shoppingtajm REST API with Person
 ## Features
 
 - UI config flow for server URL and Personal Access Token
-- 60 second polling through `DataUpdateCoordinator`
+- Push refresh from the Shoppingtajm SSE endpoint, with 60 second polling fallback through `DataUpdateCoordinator`
 - Sensors for total lists, active list, remaining items, completed items, and last update time
 - Button entity to refresh Shoppingtajm data immediately
 - Home Assistant services for adding, completing, deleting, and creating lists
@@ -67,7 +67,7 @@ The integration is built for HACS and uses the Shoppingtajm REST API with Person
    - Server URL, for example `https://shoppingtajm.se`
    - Personal Access Token, for example `stj_...`
 
-The config flow validates the token against `GET /api/ha/status`. For older Shoppingtajm servers without that endpoint, the integration falls back to the documented list API after attempting the status endpoint.
+The config flow validates the token against `GET /api/ha/status`. After setup, the integration listens to `GET /api/ha/events` for push refresh signals and refreshes `/api/ha/status` when Shoppingtajm changes. If the SSE endpoint is unavailable or disconnected, normal 60 second polling continues as a fallback. For older Shoppingtajm servers without the status endpoint, the integration falls back to the documented list API after attempting the status endpoint.
 
 ## Entities
 
@@ -92,7 +92,7 @@ This repository includes brand assets under `brand/` for HACS and an optional cu
 Register the card resource:
 
 ```text
-/shoppingtajm_static/shoppingtajm-card.js?v=0.1.9
+/shoppingtajm_static/shoppingtajm-card.js?v=0.1.10
 ```
 
 Use resource type:
