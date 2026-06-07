@@ -10,7 +10,7 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
-from .api import ShoppingTajmError
+from .api import ShoppingTajmData, ShoppingTajmError
 from .const import (
     ATTR_ITEM_ID,
     ATTR_ITEM_IDS,
@@ -297,9 +297,10 @@ def _list_id_from_call_or_active(
         list_id = int(call.data[ATTR_LIST_ID])
         _validate_grocery_list_id(coordinator, list_id)
         return list_id
-    if coordinator.data is None:
+    data = cast(ShoppingTajmData | None, getattr(coordinator, "data", None))
+    if data is None:
         return None
-    return cast(int | None, coordinator.data.active_list_id)
+    return data.active_list_id
 
 
 def _validate_grocery_list_id(
@@ -307,8 +308,9 @@ def _validate_grocery_list_id(
     list_id: int,
 ) -> None:
     """Validate that a service targets a grocery list known to the coordinator."""
-    if coordinator.data is None:
+    data = cast(ShoppingTajmData | None, getattr(coordinator, "data", None))
+    if data is None:
         return
-    if any(item.id == list_id for item in coordinator.data.lists):
+    if any(item.id == list_id for item in data.lists):
         return
     raise ServiceValidationError("list_id must identify a ShoppingTajm grocery list")

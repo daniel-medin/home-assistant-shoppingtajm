@@ -9,7 +9,7 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
-from .api import ShoppingTajmError
+from .api import ShoppingTajmData, ShoppingTajmError
 from .const import ATTR_ITEM_ID, ATTR_LIST_ID, CONF_ENTRY_ID, DOMAIN
 from .coordinator import ShoppingTajmCoordinator
 
@@ -137,6 +137,7 @@ def _is_known_grocery_list_id(
     list_id: int,
 ) -> bool:
     """Return whether a list ID belongs to the filtered grocery list set."""
-    if coordinator.data is None:
+    data = cast(ShoppingTajmData | None, getattr(coordinator, "data", None))
+    if data is None:
         return True
-    return any(item.id == list_id for item in coordinator.data.lists)
+    return any(item.id == list_id for item in data.lists)
