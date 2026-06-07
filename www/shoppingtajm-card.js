@@ -114,19 +114,28 @@ function isShoppingtajmCardEntity(hass, entityId) {
   );
 }
 
+function findShoppingtajmCardEntity(hass, preferredEntityId) {
+  if (isShoppingtajmCardEntity(hass, preferredEntityId)) {
+    return preferredEntityId;
+  }
+  return (
+    Object.keys(hass?.states ?? {}).find(
+      (entityId) =>
+        entityId.startsWith("sensor.") &&
+        entityId.includes("shoppingtajm") &&
+        entityId.includes("active_list_name"),
+    ) ??
+    Object.keys(hass?.states ?? {}).find((entityId) => isShoppingtajmCardEntity(hass, entityId))
+  );
+}
+
 class ShoppingtajmCard extends HTMLElement {
   static getConfigElement() {
     return document.createElement("shoppingtajm-card-editor");
   }
 
   static getStubConfig(hass) {
-    const entity =
-      Object.keys(hass?.states ?? {}).find(
-        (entityId) =>
-          entityId.startsWith("sensor.") &&
-          entityId.includes("shoppingtajm") &&
-          entityId.includes("active_list_name"),
-      ) ?? "sensor.shoppingtajm_active_list_name";
+    const entity = findShoppingtajmCardEntity(hass) ?? "sensor.shoppingtajm_active_list_name";
     return {
       entity,
       background_color: DEFAULT_BACKGROUND,
@@ -197,7 +206,12 @@ class ShoppingtajmCard extends HTMLElement {
   }
 
   _state() {
-    return this._hass?.states?.[this._config.entity];
+    const entityId = this._entityId();
+    return entityId ? this._hass?.states?.[entityId] : undefined;
+  }
+
+  _entityId() {
+    return findShoppingtajmCardEntity(this._hass, this._config.entity);
   }
 
   _attributes() {
@@ -494,6 +508,7 @@ class ShoppingtajmCard extends HTMLElement {
     const attrs = this._attributes();
     return JSON.stringify({
       state: this._state()?.state,
+      entity: this._entityId(),
       listId: attrs.list_id,
       lists: attrs.lists ?? [],
       items: attrs.items ?? [],
@@ -995,7 +1010,7 @@ class ShoppingtajmCard extends HTMLElement {
   _bindEvents() {
     this.shadowRoot.querySelector(".refresh")?.addEventListener("click", () => {
       this._hass.callService("homeassistant", "update_entity", {
-        entity_id: this._config.entity,
+        entity_id: this._entityId() ?? this._config.entity,
       });
     });
     this.shadowRoot.querySelector(".list-picker")?.addEventListener("change", (event) => {
@@ -1247,7 +1262,8 @@ class ShoppingtajmCardEditor extends HTMLElement {
   }
 
   _state() {
-    return this._hass?.states?.[this._config?.entity];
+    const entityId = findShoppingtajmCardEntity(this._hass, this._config?.entity);
+    return entityId ? this._hass?.states?.[entityId] : undefined;
   }
 
   _lists() {
