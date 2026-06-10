@@ -15,8 +15,16 @@
   </a>
 </p>
 
-<p align="center">
+<!-- <p align="center">
   <img src="https://raw.githubusercontent.com/daniel-medin/home-assistant-shoppingtajm/main/custom_components/shoppingtajm/brand/logo.png" alt="Shoppingtajm logo" width="720">
+</p> -->
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/daniel-medin/home-assistant-shoppingtajm/main/custom_components/shoppingtajm/brand/logo_inverted.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/daniel-medin/home-assistant-shoppingtajm/main/custom_components/shoppingtajm/brand/logo.png">
+    <img src="https://raw.githubusercontent.com/daniel-medin/home-assistant-shoppingtajm/main/custom_components/shoppingtajm/brand/logo.png" alt="Shoppingtajm logo" width="720">
+  </picture>
 </p>
 
 Custom Home Assistant integration for [Shoppingtajm](https://shoppingtajm.se), a Swedish shopping list app.
@@ -28,7 +36,6 @@ The integration is built for HACS and uses the Shoppingtajm REST API with Person
 - UI config flow for server URL and Personal Access Token
 - Push refresh from the Shoppingtajm SSE endpoint, with 60 second polling fallback through `DataUpdateCoordinator`
 - Sensors for total lists, active list, remaining items, completed items, and last update time
-- Button entity to refresh Shoppingtajm data immediately
 - Event `shoppingtajm_item_added` for simple automations when an item is added to the active list
 - Home Assistant services for adding, completing, deleting, and creating lists
 - Custom Lovelace card for switching lists and managing items
