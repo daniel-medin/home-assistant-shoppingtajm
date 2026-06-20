@@ -138,6 +138,7 @@ class ShoppingTajmItem:
     status: str
     extra_count: int | None
     created_at: str | None
+    has_audio: bool | None
     raw: dict[str, Any]
 
     @classmethod
@@ -151,6 +152,7 @@ class ShoppingTajmItem:
                 data.get("extraCount") or data.get("ExtraCount")
             ),
             created_at=_as_optional_str(data.get("createdAt") or data.get("CreatedAt")),
+            has_audio=_item_has_audio(data),
             raw=data,
         )
 
@@ -708,6 +710,11 @@ def _api_value(data: dict[str, Any], *keys: str) -> Any:
         if key in data:
             return data[key]
     return None
+
+
+def _item_has_audio(data: dict[str, Any]) -> bool | None:
+    """Return whether an item has playable audio when the API reports it."""
+    return _as_optional_bool(_api_value(data, "hasAudio", "HasAudio"))
 
 
 def _as_optional_int(value: Any) -> int | None:

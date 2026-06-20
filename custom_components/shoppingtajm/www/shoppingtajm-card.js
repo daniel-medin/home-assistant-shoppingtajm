@@ -1,5 +1,5 @@
 const DEFAULT_BACKGROUND = "#f7f6f1";
-const CARD_VERSION = "0.1.13";
+const CARD_VERSION = "0.1.14";
 const CARD_RESOURCE_URL = `/shoppingtajm_static/shoppingtajm-card.js?v=${CARD_VERSION}`;
 const ICON_SRC = `/shoppingtajm_static/shoppingtajm-icon.png?v=${CARD_VERSION}-icon`;
 const THEME_MODES = ["auto", "light", "dark"];
@@ -17,6 +17,7 @@ const CARD_TRANSLATIONS = {
     done: "Done",
     doubleClickToEdit: "Double-click to edit",
     dragToReorder: "Drag to reorder",
+    audioUnavailable: "Audio unavailable",
     emptyActiveItems: "No active items.",
     entity: "Entity",
     language: "Language",
@@ -53,6 +54,7 @@ const CARD_TRANSLATIONS = {
     done: "Klar",
     doubleClickToEdit: "Dubbelklicka för att redigera",
     dragToReorder: "Dra för att ändra ordning",
+    audioUnavailable: "Ljud saknas",
     emptyActiveItems: "Inga aktiva varor.",
     entity: "Entitet",
     language: "Språk",
@@ -424,9 +426,13 @@ class ShoppingtajmCard extends HTMLElement {
     return (this._attributes().items ?? []).find((item) => Number(item.id) === Number(itemId));
   }
 
+  _itemHasAudio(item) {
+    return item?.has_audio !== false;
+  }
+
   async _readList() {
     const listId = Number(this._attributes().list_id);
-    const items = this._items("active");
+    const items = this._items("active").filter((item) => this._itemHasAudio(item));
     if (!this._config.sound_enabled || !this._hass || !listId || !items.length || this._playing) {
       return;
     }
@@ -448,7 +454,15 @@ class ShoppingtajmCard extends HTMLElement {
 
   async _readItem(itemId) {
     const listId = Number(this._attributes().list_id);
-    if (!this._config.sound_enabled || !this._hass || !listId || !itemId || this._playing) {
+    const item = this._itemById(itemId);
+    if (
+      !this._config.sound_enabled ||
+      !this._hass ||
+      !listId ||
+      !itemId ||
+      !this._itemHasAudio(item) ||
+      this._playing
+    ) {
       return;
     }
 
@@ -846,6 +860,9 @@ class ShoppingtajmCard extends HTMLElement {
         ha-card.dark select:disabled {
           opacity: 0.48;
         }
+        .read-item.unavailable:disabled {
+          cursor: not-allowed;
+        }
         .icon-button,
         .add,
         .delete,
@@ -1139,6 +1156,10 @@ class ShoppingtajmCard extends HTMLElement {
     const editingQuantity = this._editingQuantityItemId === itemId;
     const draggable = completed || editingName || editingQuantity ? "" : "draggable=\"true\"";
     const t = (key) => this._t(key);
+    const hasAudio = this._itemHasAudio(item);
+    const readDisabled = disabled || this._playing || !hasAudio ? "disabled" : "";
+    const readClass = hasAudio ? "read-item" : "read-item unavailable";
+    const readTitle = hasAudio ? t("readItem") : t("audioUnavailable");
     const name = editingName
       ? `<input class="name-edit" data-item-id="${item.id}" value="${this._escape(item.name)}" ${disabled}>`
       : `<div class="name" data-edit-name="${item.id}" title="${this._escape(t("doubleClickToEdit"))}">${this._escape(item.name)}</div>`;
@@ -1146,7 +1167,7 @@ class ShoppingtajmCard extends HTMLElement {
       ? `<input class="quantity-edit" data-item-id="${item.id}" type="number" min="1" max="1000" value="${quantity}" ${disabled}>`
       : `<button class="quantity-pill" data-edit-quantity="${item.id}" title="${this._escape(t("editQuantity"))}" ${disabled}>${quantity}</button>`;
     const readControl = this._config.sound_enabled
-      ? `<button class="read-item" data-read-item="${item.id}" title="${this._escape(t("readItem"))}" ${disabled || (this._playing ? "disabled" : "")}>
+      ? `<button class="${readClass}" data-read-item="${item.id}" title="${this._escape(readTitle)}" ${readDisabled}>
           <ha-icon icon="mdi:bullhorn"></ha-icon>
         </button>`
       : "";

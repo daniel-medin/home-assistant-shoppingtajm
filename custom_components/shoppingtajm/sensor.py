@@ -138,6 +138,7 @@ class ShoppingTajmSensor(ShoppingTajmEntity, SensorEntity):
                 "status": item.status,
                 "extra_count": item.extra_count,
                 "created_at": item.created_at,
+                "has_audio": item.has_audio,
             }
             for item in data.items
         ]

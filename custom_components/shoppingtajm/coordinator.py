@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import suppress
+from dataclasses import replace
 from typing import Any, Final
 
 from homeassistant.core import HomeAssistant
@@ -72,6 +73,7 @@ class ShoppingTajmCoordinator(DataUpdateCoordinator[ShoppingTajmData]):
             raise ConfigEntryAuthFailed(str(err)) from err
         except ShoppingTajmError as err:
             raise UpdateFailed(str(err)) from err
+        data = self._data_with_stable_last_updated(data)
         self._async_fire_item_added_events(data)
         return data
 
@@ -120,8 +122,19 @@ class ShoppingTajmCoordinator(DataUpdateCoordinator[ShoppingTajmData]):
         except ShoppingTajmError as err:
             _LOGGER.warning("ShoppingTajm push refresh failed: %s", err)
             return
+        data = self._data_with_stable_last_updated(data)
         self._async_fire_item_added_events(data)
         self.async_set_updated_data(data)
+
+    def _data_with_stable_last_updated(
+        self,
+        data: ShoppingTajmData,
+    ) -> ShoppingTajmData:
+        """Keep last_updated stable when polling returns unchanged list data."""
+        previous = self.data
+        if previous is None or _has_meaningful_data_change(previous, data):
+            return data
+        return replace(data, last_updated=previous.last_updated)
 
     def _async_fire_item_added_events(self, data: ShoppingTajmData) -> None:
         """Fire Home Assistant events for newly added active-list items."""
@@ -144,3 +157,20 @@ class ShoppingTajmCoordinator(DataUpdateCoordinator[ShoppingTajmData]):
                 "status": item.status,
             }
             self.hass.bus.async_fire(EVENT_ITEM_ADDED, event_data)
+
+
+def _has_meaningful_data_change(
+    previous: ShoppingTajmData,
+    current: ShoppingTajmData,
+) -> bool:
+    """Return whether user-facing ShoppingTajm data changed."""
+    return (
+        previous.server_url != current.server_url
+        or previous.total_lists != current.total_lists
+        or previous.active_list_id != current.active_list_id
+        or previous.active_list_name != current.active_list_name
+        or previous.remaining_items != current.remaining_items
+        or previous.completed_items != current.completed_items
+        or previous.lists != current.lists
+        or previous.items != current.items
+    )

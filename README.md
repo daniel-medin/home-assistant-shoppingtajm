@@ -77,7 +77,7 @@ Sensors:
 - `sensor.shoppingtajm_active_list_name`
 - `sensor.shoppingtajm_remaining_items`
 - `sensor.shoppingtajm_completed_items`
-- `sensor.shoppingtajm_last_updated`
+- `sensor.shoppingtajm_last_updated` (updates when ShoppingTajm list data changes, not on every poll)
 
 Button:
 
@@ -94,7 +94,7 @@ This repository includes brand assets under `brand/` for HACS and an optional cu
 Register the card resource:
 
 ```text
-/shoppingtajm_static/shoppingtajm-card.js?v=0.1.13
+/shoppingtajm_static/shoppingtajm-card.js?v=0.1.14
 ```
 
 Use resource type:
@@ -114,7 +114,7 @@ entity: sensor.shoppingtajm_active_list_name
 
 Home Assistant can also discover the card from the dashboard card picker as **Shoppingtajm Card** after the JavaScript module resource has loaded.
 
-The card can switch lists, add items with suggestions, rename items, edit item quantities, complete items, delete items, and read single rows aloud.
+The card can switch lists, add items with suggestions, rename items, edit item quantities, complete items, delete items, and read single rows aloud. Items with missing audio show a disabled, greyed-out read button.
 If the Shoppingtajm integration has not been added in Home Assistant yet, the card shows setup instructions instead of inactive controls.
 The visual editor supports preferred language (automatic from the Home Assistant user language, Swedish, or English), background color, automatic/light/dark theme mode, opening the cart by default, icon visibility, sound on/off, stretch fullscreen, and a default list. Active items can be reordered by dragging the handle on each row; the card updates the row order locally first and shows a sync icon while Home Assistant saves the new order. On Home Assistant 2026.6 and newer, the card is suggested automatically for Shoppingtajm active-list sensor entities.
 
