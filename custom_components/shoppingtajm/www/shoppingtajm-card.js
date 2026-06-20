@@ -1,5 +1,5 @@
 const DEFAULT_BACKGROUND = "#f7f6f1";
-const CARD_VERSION = "0.1.14";
+const CARD_VERSION = "0.1.15";
 const CARD_RESOURCE_URL = `/shoppingtajm_static/shoppingtajm-card.js?v=${CARD_VERSION}`;
 const ICON_SRC = `/shoppingtajm_static/shoppingtajm-icon.png?v=${CARD_VERSION}-icon`;
 const THEME_MODES = ["auto", "light", "dark"];
@@ -427,7 +427,8 @@ class ShoppingtajmCard extends HTMLElement {
   }
 
   _itemHasAudio(item) {
-    return item?.has_audio !== false;
+    const value = item?.has_audio ?? item?.hasAudio;
+    return ![false, "false", 0, "0"].includes(value);
   }
 
   async _readList() {
@@ -1061,7 +1062,11 @@ class ShoppingtajmCard extends HTMLElement {
     });
     this.shadowRoot.querySelectorAll("[data-read-item]").forEach((button) => {
       button.addEventListener("click", () => {
-        this._readItem(Number(button.dataset.readItem));
+        const itemId = Number(button.dataset.readItem);
+        if (button.disabled || !this._itemHasAudio(this._itemById(itemId))) {
+          return;
+        }
+        this._readItem(itemId);
       });
     });
     this.shadowRoot.querySelectorAll("[data-edit-name]").forEach((name) => {

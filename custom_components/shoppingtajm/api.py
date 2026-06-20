@@ -714,7 +714,7 @@ def _api_value(data: dict[str, Any], *keys: str) -> Any:
 
 def _item_has_audio(data: dict[str, Any]) -> bool | None:
     """Return whether an item has playable audio when the API reports it."""
-    return _as_optional_bool(_api_value(data, "hasAudio", "HasAudio"))
+    return _as_optional_bool(_api_value(data, "hasAudio", "HasAudio", "has_audio"))
 
 
 def _as_optional_int(value: Any) -> int | None:
