@@ -1,5 +1,5 @@
 const DEFAULT_BACKGROUND = "#f7f6f1";
-const CARD_VERSION = "0.1.15";
+const CARD_VERSION = "0.1.16";
 const CARD_RESOURCE_URL = `/shoppingtajm_static/shoppingtajm-card.js?v=${CARD_VERSION}`;
 const ICON_SRC = `/shoppingtajm_static/shoppingtajm-icon.png?v=${CARD_VERSION}-icon`;
 const THEME_MODES = ["auto", "light", "dark"];
@@ -229,10 +229,12 @@ class ShoppingtajmCard extends HTMLElement {
 
   async _call(service, data) {
     this._busy = true;
+    this._render();
     try {
       await this._hass.callService("shoppingtajm", service, data);
     } finally {
       this._busy = false;
+      this._render();
     }
   }
 
